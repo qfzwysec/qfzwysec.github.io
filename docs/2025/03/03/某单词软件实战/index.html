@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>某单词软件实战 - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783586459">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783586459">
+	<link rel="canonical" href="/2025/03/03/%E6%9F%90%E5%8D%95%E8%AF%8D%E8%BD%AF%E4%BB%B6%E5%AE%9E%E6%88%98/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="某单词软件实战, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>移动安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>移动安全</span>
+          
+          <time datetime="2025-03-03T17:50:00+08:00">2025.03.03</time>
+          
+            <span>app实战</span>
+          
+        </div>
+
+        <h1>某单词软件实战</h1>
+
+        
+          <p class="post-description">某单词软件逆向实战，围绕 Frida 检测、Native 加载链路和反调试绕过展开分析。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <ul id="markdown-toc">
+  <li><a href="#过frida检测" id="markdown-toc-过frida检测">过frida检测</a>    <ul>
+      <li><a href="#正面对抗" id="markdown-toc-正面对抗">正面对抗</a></li>
+      <li><a href="#侧面绕过" id="markdown-toc-侧面绕过">侧面绕过</a></li>
+    </ul>
+  </li>
+  <li><a href="#功能破解" id="markdown-toc-功能破解">功能破解</a></li>
+  <li><a href="#完整代码" id="markdown-toc-完整代码">完整代码</a></li>
+</ul>
+
+<h1 id="过frida检测">过frida检测</h1>
+
+<p>检测Frida的机制一般在Native层实现，通常会使用pthread_create创建几个线程轮询检测</p>
+
+<p>开启frida崩溃，尝试hook <code class="language-plaintext highlighter-rouge">android_dlopen_ext</code>函数，观察加载到哪个so的时候，触发反调试进程终止。</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+        <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+        <span class="p">},</span>
+        <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+<p>可以看到加载libmsaoaidsec.so后崩溃，所以判断检测点就在这个so文件中</p>
+
+<p><img src="/styles/images/无痛单词/image-20250303170854871.png" alt="image-20250303170854871" /></p>
+
+<p>有两种方式，一种是正面对抗，一种是绕过。</p>
+
+<h2 id="正面对抗">正面对抗</h2>
+
+<p>直接将创建线程的操作nop掉</p>
+
+<p>首先通过hook<code class="language-plaintext highlighter-rouge">pthread_create</code>看一下在哪些地方创建了线程</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">check_pthread_create</span><span class="p">(</span><span class="nx">name</span> <span class="o">=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">pthread_create_addr</span> <span class="o">=</span> <span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">'</span><span class="s1">pthread_create</span><span class="dl">'</span><span class="p">);</span>
+
+    <span class="kd">var</span> <span class="nx">pthread_create</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">NativeFunction</span><span class="p">(</span><span class="nx">pthread_create_addr</span><span class="p">,</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">]);</span>
+    <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="nx">pthread_create_addr</span><span class="p">,</span> <span class="k">new</span> <span class="nc">NativeCallback</span><span class="p">(</span><span class="nf">function </span><span class="p">(</span><span class="nx">parg0</span><span class="p">,</span> <span class="nx">parg1</span><span class="p">,</span> <span class="nx">parg2</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">module</span> <span class="o">=</span> <span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByAddress</span><span class="p">(</span><span class="nx">parg2</span><span class="p">)</span>
+        <span class="kd">var</span> <span class="nx">so_base</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">base</span><span class="p">;</span>
+        <span class="kd">var</span> <span class="nx">off</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">0x</span><span class="dl">"</span> <span class="o">+</span> <span class="nx">parg2</span><span class="p">.</span><span class="nf">sub</span><span class="p">(</span><span class="nx">so_base</span><span class="p">).</span><span class="nf">toString</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+        <span class="kd">var</span> <span class="nx">so_name</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">name</span><span class="p">;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">so_name</span><span class="p">,</span> <span class="nx">off</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nf">pthread_create</span><span class="p">(</span><span class="nx">parg0</span><span class="p">,</span> <span class="nx">parg1</span><span class="p">,</span> <span class="nx">parg2</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">);</span>
+
+    <span class="p">},</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">]))</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<ul>
+  <li>parg0：指向 pthread_t 类型指针，用于存储新线程 ID</li>
+  <li>parg1：线程属性参数指针</li>
+  <li>parg2：线程入口函数地址（关键监控点）</li>
+  <li>parg3：传递给线程函数的参数指针</li>
+</ul>
+
+<p><img src="/styles/images/无痛单词/image-20250303153610182.png" alt="image-20250303153610182" /></p>
+
+<p>拿到了三个偏移地址，但要想获取真实地址进行nop还需要基地址。</p>
+
+<p>先尝试使用dlopen获取基地址</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+        <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+            <span class="k">if</span><span class="p">(</span><span class="nx">soPath</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">){</span>
+                <span class="k">this</span><span class="p">.</span><span class="nx">hook</span> <span class="o">=</span> <span class="kc">true</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="k">if</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">hook</span><span class="p">){</span>
+                <span class="c1">//尝试打印so的基址</span>
+                <span class="kd">let</span> <span class="nx">r</span> <span class="o">=</span> <span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByName</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">r</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>结果崩溃了</p>
+
+<p>安卓so的加载流程如下：</p>
+
+<p>linker-&gt;init_proc-&gt;JNI_OnLoad</p>
+
+<p>从<code class="language-plaintext highlighter-rouge">dlopen</code>获取基址，是要等<code class="language-plaintext highlighter-rouge">jni</code>加载后的，但是现在<code class="language-plaintext highlighter-rouge">jni</code>还没加载我们的<code class="language-plaintext highlighter-rouge">frida</code>就被杀掉了，说明检测在<code class="language-plaintext highlighter-rouge">init_proc</code>里，我们需要寻找一个合适的hook时机。</p>
+
+<p>这里做了虚假控制流混淆，但是还是不难判断哪个外部函数最先被调用</p>
+
+<p><img src="/styles/images/无痛单词/image-20250303160039268.png" alt="image-20250303160039268" /></p>
+
+<p>该函数调用了_system_property_get获取sdk版本</p>
+
+<p><img src="/styles/images/无痛单词/image-20250303160143807.png" alt="image-20250303160143807" /></p>
+
+<p>所以当该函数被调用时，init_proc就已经开始运行了，可以获取基地址</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">anti</span><span class="p">(){</span>
+    <span class="kd">function</span> <span class="nf">locate_init</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">let</span> <span class="nx">r</span> <span class="o">=</span> <span class="kc">null</span>
+    <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">__system_property_get</span><span class="dl">"</span><span class="p">),</span>
+        <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">name</span> <span class="o">=</span> <span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">name</span> <span class="o">!==</span> <span class="kc">undefined</span> <span class="o">&amp;&amp;</span> <span class="nx">name</span> <span class="o">!=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">name</span> <span class="o">=</span> <span class="nf">ptr</span><span class="p">(</span><span class="nx">name</span><span class="p">).</span><span class="nf">readCString</span><span class="p">();</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+                    <span class="k">if </span><span class="p">(</span><span class="nx">name</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">ro.build.version.sdk</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                       <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByName</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">).</span><span class="nx">base</span><span class="p">)</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+    <span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+                <span class="k">if</span><span class="p">(</span><span class="nx">soPath</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">){</span>
+                    <span class="nf">locate_init</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+
+        <span class="p">});</span>
+    <span class="p">}</span>
+
+
+    <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/无痛单词/image-20250303160732301.png" alt="image-20250303160732301" /></p>
+
+<p>真实地址=基地址+偏移</p>
+
+<p>接下来进行nop即可,最后的anti脚本如下</p>
+
+<ul>
+  <li>使用 Memory.protect 解除内存写保护</li>
+  <li>通过 Arm64Writer 在目标地址写入 ret 指令（操作码 0xD65F03C0）</li>
+  <li>该操作将原函数入口改为立即返回，有效禁用检测函数</li>
+</ul>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">anti</span><span class="p">(){</span>
+    <span class="kd">function</span> <span class="nf">locate_init</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">let</span> <span class="nx">r</span> <span class="o">=</span> <span class="kc">null</span>
+    <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">__system_property_get</span><span class="dl">"</span><span class="p">),</span>
+        <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">name</span> <span class="o">=</span> <span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">name</span> <span class="o">!==</span> <span class="kc">undefined</span> <span class="o">&amp;&amp;</span> <span class="nx">name</span> <span class="o">!=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">name</span> <span class="o">=</span> <span class="nf">ptr</span><span class="p">(</span><span class="nx">name</span><span class="p">).</span><span class="nf">readCString</span><span class="p">();</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+                    <span class="k">if </span><span class="p">(</span><span class="nx">name</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">ro.build.version.sdk</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                       <span class="kd">let</span> <span class="nx">base</span> <span class="o">=</span> <span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByName</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">).</span><span class="nx">base</span>
+                        <span class="nf">nop</span><span class="p">(</span><span class="nx">base</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="dl">"</span><span class="s2">0x1c544</span><span class="dl">"</span><span class="p">))</span>
+                        <span class="nf">nop</span><span class="p">(</span><span class="nx">base</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="dl">"</span><span class="s2">0x1b8d4</span><span class="dl">"</span><span class="p">))</span>
+                        <span class="nf">nop</span><span class="p">(</span><span class="nx">base</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="dl">"</span><span class="s2">0x26e5c</span><span class="dl">"</span><span class="p">))</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+    <span class="kd">function</span> <span class="nf">nop</span><span class="p">(</span><span class="nx">addr</span><span class="p">){</span>
+        <span class="nx">Memory</span><span class="p">.</span><span class="nf">protect</span><span class="p">(</span><span class="nx">addr</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="dl">'</span><span class="s1">rwx</span><span class="dl">'</span><span class="p">);</span>
+        <span class="kd">let</span> <span class="nx">writer</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Arm64Writer</span><span class="p">(</span><span class="nx">addr</span><span class="p">);</span>
+        <span class="nx">writer</span><span class="p">.</span><span class="nf">putRet</span><span class="p">()</span>
+        <span class="nx">writer</span><span class="p">.</span><span class="nf">flush</span><span class="p">()</span>
+        <span class="nx">writer</span><span class="p">.</span><span class="nf">dispose</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+                <span class="k">if</span><span class="p">(</span><span class="nx">soPath</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">){</span>
+                    <span class="nf">locate_init</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+
+        <span class="p">});</span>
+    <span class="p">}</span>
+
+
+    <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="侧面绕过">侧面绕过</h2>
+
+<p>hook<code class="language-plaintext highlighter-rouge">pthread_create</code>函数，创建虚假的线程替换用于检测的线程。</p>
+
+<p>免去了找基地址的操作。</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">bypass</span><span class="p">(){</span>
+
+    <span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">soPath</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nf">check_pthread_create</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">});</span>
+
+        <span class="k">return</span> <span class="nx">Interceptor</span>
+    <span class="p">}</span>
+
+    <span class="kd">function</span> <span class="nf">check_pthread_create</span><span class="p">(</span><span class="nx">name</span> <span class="o">=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">pthread_create_addr</span> <span class="o">=</span> <span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">'</span><span class="s1">pthread_create</span><span class="dl">'</span><span class="p">);</span>
+
+        <span class="kd">var</span> <span class="nx">pthread_create</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">NativeFunction</span><span class="p">(</span><span class="nx">pthread_create_addr</span><span class="p">,</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">]);</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="nx">pthread_create_addr</span><span class="p">,</span> <span class="k">new</span> <span class="nc">NativeCallback</span><span class="p">(</span><span class="nf">function </span><span class="p">(</span><span class="nx">parg0</span><span class="p">,</span> <span class="nx">parg1</span><span class="p">,</span> <span class="nx">parg2</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kd">var</span> <span class="nx">module</span> <span class="o">=</span> <span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByAddress</span><span class="p">(</span><span class="nx">parg2</span><span class="p">)</span>
+            <span class="kd">var</span> <span class="nx">so_base</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">base</span><span class="p">;</span>
+            <span class="kd">var</span> <span class="nx">off</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">0x</span><span class="dl">"</span> <span class="o">+</span> <span class="nx">parg2</span><span class="p">.</span><span class="nf">sub</span><span class="p">(</span><span class="nx">so_base</span><span class="p">).</span><span class="nf">toString</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+            <span class="kd">var</span> <span class="nx">so_name</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">name</span><span class="p">;</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">so_name</span><span class="p">,</span> <span class="nx">off</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span>
+            <span class="k">if</span><span class="p">(</span><span class="nx">so_name</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">){</span>
+                <span class="k">return</span> <span class="nx">fake_pthread_create</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="nf">pthread_create</span><span class="p">(</span><span class="nx">parg0</span><span class="p">,</span> <span class="nx">parg1</span><span class="p">,</span> <span class="nx">parg2</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span>
+
+        <span class="p">},</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">]))</span>
+    <span class="p">}</span>
+    
+
+    <span class="kd">function</span> <span class="nf">create_fake_pthread_create</span><span class="p">()</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">fake_pthread_create</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">alloc</span><span class="p">(</span><span class="mi">4096</span><span class="p">)</span>
+        <span class="nx">Memory</span><span class="p">.</span><span class="nf">protect</span><span class="p">(</span><span class="nx">fake_pthread_create</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="dl">"</span><span class="s2">rwx</span><span class="dl">"</span><span class="p">)</span>
+        <span class="nx">Memory</span><span class="p">.</span><span class="nf">patchCode</span><span class="p">(</span><span class="nx">fake_pthread_create</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="nx">code</span> <span class="o">=&gt;</span> <span class="p">{</span>
+            <span class="kd">const</span> <span class="nx">cw</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Arm64Writer</span><span class="p">(</span><span class="nx">code</span><span class="p">,</span> <span class="p">{</span> <span class="na">pc</span><span class="p">:</span> <span class="nf">ptr</span><span class="p">(</span><span class="nx">fake_pthread_create</span><span class="p">)</span> <span class="p">})</span>
+            <span class="nx">cw</span><span class="p">.</span><span class="nf">putRet</span><span class="p">()</span>
+        <span class="p">})</span>
+        <span class="k">return</span> <span class="nx">fake_pthread_create</span>
+    <span class="p">}</span>
+
+    <span class="kd">let</span> <span class="nx">fake_pthread_create</span> <span class="o">=</span> <span class="nf">create_fake_pthread_create</span><span class="p">()</span>
+    <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span>
+
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h1 id="功能破解">功能破解</h1>
+
+<p>没有壳，直接分析即可</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hook_getPro</span><span class="p">(){</span>
+
+    <span class="kd">let</span> <span class="nx">UserBean</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">xxx.model.UserBean</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">UserBean</span><span class="p">[</span><span class="dl">"</span><span class="s2">getPro</span><span class="dl">"</span><span class="p">].</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`UserBean.getPro is called`</span><span class="p">);</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>hook这个之前还是做了大量分析的，最后发现，这个app是前端鉴权的。</p>
+
+<p>因为经过尝试，无论是hook上面这个函数还是通过抓包修改响应，都可以使用会员功能。不过修改响应需要在<strong>登陆的时候</strong>就修改，其他时候鉴权不会产生数据包，但会触发getPro这个函数。</p>
+
+<p><img src="/styles/images/无痛单词/image-20250303163008782.png" alt="image-20250303163008782" /></p>
+
+<p>因为这个UserBean在用户登陆时就构造好了，而且居然是根据前端的响应构造的，因为在登陆时将pro改为1，然后。。。似乎本地存储了，就算退出软件再进来也是会员。这我还hook什么啊！</p>
+
+<h1 id="完整代码">完整代码</h1>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">bypass</span><span class="p">(){</span>
+
+    <span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">soPath</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nf">check_pthread_create</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">});</span>
+
+        <span class="k">return</span> <span class="nx">Interceptor</span>
+    <span class="p">}</span>
+
+    <span class="kd">function</span> <span class="nf">check_pthread_create</span><span class="p">(</span><span class="nx">name</span> <span class="o">=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">pthread_create_addr</span> <span class="o">=</span> <span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">'</span><span class="s1">pthread_create</span><span class="dl">'</span><span class="p">);</span>
+
+        <span class="kd">var</span> <span class="nx">pthread_create</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">NativeFunction</span><span class="p">(</span><span class="nx">pthread_create_addr</span><span class="p">,</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">]);</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="nx">pthread_create_addr</span><span class="p">,</span> <span class="k">new</span> <span class="nc">NativeCallback</span><span class="p">(</span><span class="nf">function </span><span class="p">(</span><span class="nx">parg0</span><span class="p">,</span> <span class="nx">parg1</span><span class="p">,</span> <span class="nx">parg2</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kd">var</span> <span class="nx">module</span> <span class="o">=</span> <span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByAddress</span><span class="p">(</span><span class="nx">parg2</span><span class="p">)</span>
+            <span class="kd">var</span> <span class="nx">so_base</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">base</span><span class="p">;</span>
+            <span class="kd">var</span> <span class="nx">off</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">0x</span><span class="dl">"</span> <span class="o">+</span> <span class="nx">parg2</span><span class="p">.</span><span class="nf">sub</span><span class="p">(</span><span class="nx">so_base</span><span class="p">).</span><span class="nf">toString</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+            <span class="kd">var</span> <span class="nx">so_name</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">name</span><span class="p">;</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">so_name</span><span class="p">,</span> <span class="nx">off</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span>
+            <span class="k">if</span><span class="p">(</span><span class="nx">so_name</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">){</span>
+                <span class="k">return</span> <span class="nx">fake_pthread_create</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="nf">pthread_create</span><span class="p">(</span><span class="nx">parg0</span><span class="p">,</span> <span class="nx">parg1</span><span class="p">,</span> <span class="nx">parg2</span><span class="p">,</span> <span class="nx">parg3</span><span class="p">)</span>
+
+        <span class="p">},</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">pointer</span><span class="dl">"</span><span class="p">]))</span>
+    <span class="p">}</span>
+
+
+    <span class="kd">function</span> <span class="nf">create_fake_pthread_create</span><span class="p">()</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">fake_pthread_create</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">alloc</span><span class="p">(</span><span class="mi">4096</span><span class="p">)</span>
+        <span class="nx">Memory</span><span class="p">.</span><span class="nf">protect</span><span class="p">(</span><span class="nx">fake_pthread_create</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="dl">"</span><span class="s2">rwx</span><span class="dl">"</span><span class="p">)</span>
+        <span class="nx">Memory</span><span class="p">.</span><span class="nf">patchCode</span><span class="p">(</span><span class="nx">fake_pthread_create</span><span class="p">,</span> <span class="mi">4096</span><span class="p">,</span> <span class="nx">code</span> <span class="o">=&gt;</span> <span class="p">{</span>
+            <span class="kd">const</span> <span class="nx">cw</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Arm64Writer</span><span class="p">(</span><span class="nx">code</span><span class="p">,</span> <span class="p">{</span> <span class="na">pc</span><span class="p">:</span> <span class="nf">ptr</span><span class="p">(</span><span class="nx">fake_pthread_create</span><span class="p">)</span> <span class="p">})</span>
+            <span class="nx">cw</span><span class="p">.</span><span class="nf">putRet</span><span class="p">()</span>
+        <span class="p">})</span>
+        <span class="k">return</span> <span class="nx">fake_pthread_create</span>
+    <span class="p">}</span>
+
+    <span class="kd">let</span> <span class="nx">fake_pthread_create</span> <span class="o">=</span> <span class="nf">create_fake_pthread_create</span><span class="p">()</span>
+    <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span>
+
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nf">hoot_getUser</span><span class="p">(){</span>
+    
+    <span class="kd">let</span> <span class="nx">UserBean</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">xxx.model.UserBean</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">UserBean</span><span class="p">[</span><span class="dl">"</span><span class="s2">getPro</span><span class="dl">"</span><span class="p">].</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`UserBean.getPro is called`</span><span class="p">);</span>
+        <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">this</span><span class="p">[</span><span class="dl">"</span><span class="s2">getPro</span><span class="dl">"</span><span class="p">]();</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`UserBean.getPro result=</span><span class="p">${</span><span class="nx">result</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+<span class="kd">function</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span>
+        <span class="nf">function </span><span class="p">(){</span>
+            <span class="nf">hoot_getUser</span><span class="p">()</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nf">anti</span><span class="p">(){</span>
+    <span class="kd">function</span> <span class="nf">locate_init</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">let</span> <span class="nx">r</span> <span class="o">=</span> <span class="kc">null</span>
+    <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">__system_property_get</span><span class="dl">"</span><span class="p">),</span>
+        <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">name</span> <span class="o">=</span> <span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">name</span> <span class="o">!==</span> <span class="kc">undefined</span> <span class="o">&amp;&amp;</span> <span class="nx">name</span> <span class="o">!=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">name</span> <span class="o">=</span> <span class="nf">ptr</span><span class="p">(</span><span class="nx">name</span><span class="p">).</span><span class="nf">readCString</span><span class="p">();</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+                    <span class="k">if </span><span class="p">(</span><span class="nx">name</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">ro.build.version.sdk</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                       <span class="kd">let</span> <span class="nx">base</span> <span class="o">=</span> <span class="nx">Process</span><span class="p">.</span><span class="nf">findModuleByName</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">).</span><span class="nx">base</span>
+                        <span class="nf">nop</span><span class="p">(</span><span class="nx">base</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="dl">"</span><span class="s2">0x1c544</span><span class="dl">"</span><span class="p">))</span>
+                        <span class="nf">nop</span><span class="p">(</span><span class="nx">base</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="dl">"</span><span class="s2">0x1b8d4</span><span class="dl">"</span><span class="p">))</span>
+                        <span class="nf">nop</span><span class="p">(</span><span class="nx">base</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="dl">"</span><span class="s2">0x26e5c</span><span class="dl">"</span><span class="p">))</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+    <span class="kd">function</span> <span class="nf">nop</span><span class="p">(</span><span class="nx">addr</span><span class="p">){</span>
+        <span class="nx">Memory</span><span class="p">.</span><span class="nf">protect</span><span class="p">(</span><span class="nx">addr</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="dl">'</span><span class="s1">rwx</span><span class="dl">'</span><span class="p">);</span>
+        <span class="kd">let</span> <span class="nx">writer</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Arm64Writer</span><span class="p">(</span><span class="nx">addr</span><span class="p">);</span>
+        <span class="nx">writer</span><span class="p">.</span><span class="nf">putRet</span><span class="p">()</span>
+        <span class="nx">writer</span><span class="p">.</span><span class="nf">flush</span><span class="p">()</span>
+        <span class="nx">writer</span><span class="p">.</span><span class="nf">dispose</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="kd">function</span> <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Interceptor</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="nx">Module</span><span class="p">.</span><span class="nf">findExportByName</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="dl">"</span><span class="s2">android_dlopen_ext</span><span class="dl">"</span><span class="p">),</span> <span class="p">{</span>
+            <span class="na">onEnter</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">args</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">soPath</span> <span class="o">=</span> <span class="nx">Memory</span><span class="p">.</span><span class="nf">readCString</span><span class="p">(</span><span class="nf">ptr</span><span class="p">(</span><span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]));</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">soPath</span><span class="p">);</span>
+                <span class="k">if</span><span class="p">(</span><span class="nx">soPath</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">libmsaoaidsec.so</span><span class="dl">"</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">){</span>
+                    <span class="nf">locate_init</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="na">onLeave</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">retval</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">retval</span><span class="p">.</span><span class="nf">toInt32</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">android_dlopen_ext: loaded</span><span class="dl">"</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+
+        <span class="p">});</span>
+    <span class="p">}</span>
+
+
+    <span class="nf">hook_android_dlopen_ext</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="c1">// setImmediate(anti)</span>
+<span class="nf">setImmediate</span><span class="p">(</span><span class="nx">bypass</span><span class="p">)</span>
+
+<span class="nf">setTimeout</span><span class="p">(</span>
+    <span class="nx">main</span><span class="p">,</span> <span class="mi">5000</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

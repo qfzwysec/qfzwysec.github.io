@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>2 NDK开发 - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783586459">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783586459">
+	<link rel="canonical" href="/2025/01/31/2-NDK%E5%BC%80%E5%8F%91/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="2 NDK开发, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>移动安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>移动安全</span>
+          
+          <time datetime="2025-01-31T10:48:00+08:00">2025.01.31</time>
+          
+            <span>NDK</span>
+          
+        </div>
+
+        <h1>2 NDK开发</h1>
+
+        
+          <p class="post-description">Android NDK、JNI 与 Native 开发基础，梳理 Java/Kotlin 与 C/C++ 代码交互的关键路径。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <ul id="markdown-toc">
+  <li><a href="#1-基础知识" id="markdown-toc-1-基础知识">1 基础知识</a>    <ul>
+      <li><a href="#11-jnindk" id="markdown-toc-11-jnindk">1.1 JNI/NDK</a>        <ul>
+          <li><a href="#111-jni" id="markdown-toc-111-jni">1.1.1 <strong>JNI</strong></a></li>
+          <li><a href="#112-ndk" id="markdown-toc-112-ndk">1.1.2 <strong>NDK</strong></a></li>
+          <li><a href="#113-为什么要在android上使用cc代码" id="markdown-toc-113-为什么要在android上使用cc代码">1.1.3 <strong>为什么要在Android上使用C/C++代码：</strong></a></li>
+        </ul>
+      </li>
+      <li><a href="#12-ndk开发" id="markdown-toc-12-ndk开发">1.2 NDK开发</a>        <ul>
+          <li><a href="#121-新建native项目" id="markdown-toc-121-新建native项目">1.2.1 新建Native项目</a></li>
+          <li><a href="#122-设置调试模式" id="markdown-toc-122-设置调试模式">1.2.2 设置调试模式</a></li>
+          <li><a href="#123-native-libcpp" id="markdown-toc-123-native-libcpp">1.2.3 native-lib.cpp</a></li>
+          <li><a href="#124-静态注册" id="markdown-toc-124-静态注册">1.2.4 静态注册</a></li>
+          <li><a href="#125-动态注册" id="markdown-toc-125-动态注册">1.2.5 动态注册</a>            <ul>
+              <li><a href="#1251-jni_onload" id="markdown-toc-1251-jni_onload">1.2.5.1 <strong>JNI_OnLoad</strong></a></li>
+              <li><a href="#1252-案例" id="markdown-toc-1252-案例">1.2.5.2 案例</a></li>
+            </ul>
+          </li>
+          <li><a href="#126-数据类型" id="markdown-toc-126-数据类型">1.2.6 数据类型</a>            <ul>
+              <li><a href="#1261-类描述符" id="markdown-toc-1261-类描述符">1.2.6.1 类描述符</a></li>
+              <li><a href="#1262-数组描述符" id="markdown-toc-1262-数组描述符"><strong>1.2.6.2</strong> 数组描述符</a></li>
+              <li><a href="#1263-函数描述符" id="markdown-toc-1263-函数描述符">1.2.6.3 函数描述符</a></li>
+              <li><a href="#1264-域描述符" id="markdown-toc-1264-域描述符">1.2.6.4 域描述符</a></li>
+              <li><a href="#案例" id="markdown-toc-案例"><strong>案例</strong></a></li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li><a href="#2-java反射" id="markdown-toc-2-java反射">2 Java反射</a>    <ul>
+      <li><a href="#class类" id="markdown-toc-class类">Class类</a>        <ul>
+          <li><a href="#获取类相关的方法" id="markdown-toc-获取类相关的方法">获取类相关的方法</a></li>
+          <li><a href="#获取类中属性相关的方法" id="markdown-toc-获取类中属性相关的方法">获取类中属性相关的方法</a></li>
+          <li><a href="#获取类中注解相关的方法" id="markdown-toc-获取类中注解相关的方法">获取类中注解相关的方法</a></li>
+          <li><a href="#获取类中构造器相关的方法" id="markdown-toc-获取类中构造器相关的方法">获取类中构造器相关的方法</a></li>
+          <li><a href="#获取类中方法相关的方法" id="markdown-toc-获取类中方法相关的方法">获取类中方法相关的方法</a></li>
+          <li><a href="#其他" id="markdown-toc-其他">其他</a></li>
+        </ul>
+      </li>
+      <li><a href="#field类" id="markdown-toc-field类">Field类</a></li>
+      <li><a href="#method类" id="markdown-toc-method类">Method类</a></li>
+      <li><a href="#constructor类" id="markdown-toc-constructor类">Constructor类</a></li>
+      <li><a href="#实现案例" id="markdown-toc-实现案例">实现案例</a>        <ul>
+          <li><a href="#新建一个class-test" id="markdown-toc-新建一个class-test">新建一个class Test</a></li>
+          <li><a href="#通过反射调用java类" id="markdown-toc-通过反射调用java类">通过反射调用Java类</a>            <ul>
+              <li><a href="#属性相关测试" id="markdown-toc-属性相关测试">属性相关测试</a></li>
+              <li><a href="#方法相关测试" id="markdown-toc-方法相关测试">方法相关测试</a></li>
+              <li><a href="#构造器相关测试" id="markdown-toc-构造器相关测试">构造器相关测试</a></li>
+            </ul>
+          </li>
+          <li><a href="#在c中通过反射调用java类" id="markdown-toc-在c中通过反射调用java类">在C++中通过反射调用Java类</a></li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li><a href="#3-javavm和jnienv" id="markdown-toc-3-javavm和jnienv">3 JavaVM和JNIEnv</a>    <ul>
+      <li><a href="#31-javavm" id="markdown-toc-31-javavm">3.1 JavaVM</a></li>
+      <li><a href="#32-jnienv" id="markdown-toc-32-jnienv">3.2 JNIEnv</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h1 id="1-基础知识">1 基础知识</h1>
+
+<h2 id="11-jnindk">1.1 JNI/NDK</h2>
+
+<h3 id="111-jni">1.1.1 <strong>JNI</strong></h3>
+
+<p>Java Native Interface，它<strong>允许Java代码和其他语言写的代码进行交互</strong>。JNI不是Android特有，windows、linux等凡是有JVM的地方都支持JNI。JNI是Java和Native世界的桥梁。而背后的一切都由Dalvik/ART虚拟机来驱动。</p>
+
+<hr />
+
+<h3 id="112-ndk">1.1.2 <strong>NDK</strong></h3>
+
+<p>Native Development kit，NDK提供了工具链，帮助开发者快速开发以及调试C(或C++)的动态库。</p>
+
+<hr />
+
+<h3 id="113-为什么要在android上使用cc代码">1.1.3 <strong>为什么要在Android上使用C/C++代码：</strong></h3>
+
+<p>1.不论是Java还是Kotlin,最终都是编译成字节码文件.dex文件，然而字节码文件是Java/Kotlin经过一定语义编译之后的产物，并不是完全可以运行的机器码指令；所以运行应用时还是需要进一步的编译成机器码才能够执行;</p>
+
+<p>2.C/C++是完全的编译型语言，编译之后是机器码文件，运行应用时，可以直接执行的，效率比Java/Kotlin高。比较耗性能的操作，如音视频编解码，图像处理等操作，交由C/C++代码中去执行，能够大大提高应用的执行效率</p>
+
+<h2 id="12-ndk开发">1.2 NDK开发</h2>
+
+<h3 id="121-新建native项目">1.2.1 新建Native项目</h3>
+
+<p><img src="/styles/images/2 NDK开发/image-20250123231641800.png" alt="image-20250123231641800" /></p>
+
+<p>在src/main目录下 有一个cpp目录，与java目录同级，cpp目录下有一个 CMakeLists.txt文件和native-lib.cpp
+CMkeLists.txt就是CMake脚本文件
+native-lib.cpp 是C++源文件</p>
+
+<p><img src="/styles/images/2 NDK开发/image-20250123231929126.png" alt="image-20250123231929126" /></p>
+
+<h3 id="122-设置调试模式">1.2.2 设置调试模式</h3>
+
+<p>默认自动检测即可</p>
+
+<p><img src="/styles/images/2 NDK开发/image-20250123232155033.png" alt="image-20250123232155033" /></p>
+
+<h3 id="123-native-libcpp">1.2.3 native-lib.cpp</h3>
+
+<p>android_studio提供的样例是静态注册的</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;jni.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string&gt;</span><span class="cp">
+</span>
+<span class="k">extern</span> <span class="s">"C"</span> <span class="n">JNIEXPORT</span> <span class="n">jstring</span> <span class="n">JNICALL</span>
+<span class="nf">Java_com_example_ndk_1demo_MainActivity_stringFromJNI</span><span class="p">(</span>
+        <span class="n">JNIEnv</span><span class="o">*</span> <span class="n">env</span><span class="p">,</span>
+        <span class="n">jobject</span> <span class="cm">/* this */</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">hello</span> <span class="o">=</span> <span class="s">"Hello from C++"</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">NewStringUTF</span><span class="p">(</span><span class="n">hello</span><span class="p">.</span><span class="n">c_str</span><span class="p">());</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">JNIEXPORT</code> 是 JNI 中用来声明本地方法的宏，它告诉编译器该函数是一个可以被 Java 调用的本地方法</li>
+  <li><code class="language-plaintext highlighter-rouge">JNICALL</code> 确保该方法符合 JNI 的调用约定</li>
+</ul>
+
+<h3 id="124-静态注册">1.2.4 静态注册</h3>
+
+<p>在<code class="language-plaintext highlighter-rouge">MainActivity.java</code>中声明两种JNI函数</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">native</span> <span class="kt">void</span> <span class="nf">myFirstJNI</span><span class="o">();</span>
+
+<span class="kd">public</span> <span class="kd">static</span> <span class="kd">native</span> <span class="kt">void</span> <span class="nf">staticJNI</span><span class="o">();</span>
+</code></pre></div></div>
+
+<p>静态的JNI函数和非静态的第二个参数不一样</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">extern</span> <span class="s">"C"</span> <span class="n">JNIEXPORT</span> <span class="kt">void</span> <span class="n">JNICALL</span>
+<span class="nf">Java_com_example_ndk_1demo_MainActivity_myFirstJNI</span><span class="p">(</span><span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="n">jobject</span> <span class="n">thiz</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// TODO: implement myFirstJNI()</span>
+<span class="p">}</span>
+
+<span class="k">extern</span> <span class="s">"C"</span>
+<span class="n">JNIEXPORT</span> <span class="kt">void</span> <span class="n">JNICALL</span>
+<span class="nf">Java_com_example_ndk_1demo_MainActivity_staticJNI</span><span class="p">(</span><span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="n">jclass</span> <span class="n">clazz</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// TODO: implement staticJNI()</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>非静态本地方法的第二个参数是对对象的引用，静态本地方法的第二个参数是对其Java类的引用。参考java类中的静态方法，是通过类进行调用，而不是实例对象。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+
+    <span class="n">binding</span> <span class="o">=</span> <span class="nc">ActivityMainBinding</span><span class="o">.</span><span class="na">inflate</span><span class="o">(</span><span class="n">getLayoutInflater</span><span class="o">());</span>
+    <span class="n">setContentView</span><span class="o">(</span><span class="n">binding</span><span class="o">.</span><span class="na">getRoot</span><span class="o">());</span>
+
+    <span class="c1">// Example of a call to a native method</span>
+    <span class="nc">TextView</span> <span class="n">tv</span> <span class="o">=</span> <span class="n">binding</span><span class="o">.</span><span class="na">sampleText</span><span class="o">;</span>
+    <span class="n">tv</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="n">stringFromJNI</span><span class="o">());</span>
+    <span class="nc">MainActivity</span><span class="o">.</span><span class="na">staticJNI</span><span class="o">();</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">myFirstJNI</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+
+<p>使用C编写一个JNI，extern C的作用是允许C++代码能够调用C语言代码，告诉编译器按照C语言的方式来编译被修饰的代码。</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// test.h</span>
+<span class="cp">#ifndef NDK_DEMO_TEST_H
+#define NDK_DEMO_TEST_H
+</span>
+<span class="cp">#endif //NDK_DEMO_TEST_H
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span><span class="kt">int</span> <span class="nf">add_c</span><span class="p">(</span><span class="kt">int</span> <span class="n">a</span><span class="p">,</span><span class="kt">int</span> <span class="n">b</span><span class="p">);</span>
+
+</code></pre></div></div>
+
+<p>实现函数</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//test.c</span>
+<span class="cp">#include</span> <span class="cpf">"test.h"</span><span class="cp">
+</span>
+<span class="kt">int</span> <span class="nf">add_c</span><span class="p">(</span><span class="kt">int</span> <span class="n">a</span><span class="p">,</span> <span class="kt">int</span> <span class="n">b</span><span class="p">){</span>
+    <span class="k">return</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+<p>在native-lib.cpp中引入时，需要添加extern C标识</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;jni.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;android/log.h&gt;</span><span class="cp">
+</span>
+<span class="k">extern</span> <span class="s">"C"</span> <span class="p">{</span>
+    <span class="cp">#include</span> <span class="cpf">"test.h"</span><span class="cp">
+</span><span class="p">};</span>
+</code></pre></div></div>
+
+<p>最后注意要将其添加到CmakeLists.txt中的构建列表</p>
+
+<pre><code class="language-txt">add_library(${CMAKE_PROJECT_NAME} SHARED
+        # List C/C++ source files with relative paths to this CMakeLists.txt.
+        native-lib.cpp
+        test.c
+)
+</code></pre>
+
+<p>locat打印</p>
+
+<p><img src="/styles/images/2 NDK开发/image-20250124212313129.png" alt="image-20250124212313129" /></p>
+
+<hr />
+
+<p>有extern “C”和没有该标识的区别</p>
+
+<p>这里在native-lib.cpp中添加了代码，看一下</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">int</span> <span class="nf">add</span><span class="p">(</span><span class="kt">int</span> <span class="n">a</span><span class="p">,</span> <span class="kt">int</span> <span class="n">b</span><span class="p">){</span>
+    <span class="k">return</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">extern</span> <span class="s">"C"</span> <span class="kt">int</span> <span class="nf">add1</span><span class="p">(</span><span class="kt">int</span> <span class="n">a</span><span class="p">,</span><span class="kt">int</span> <span class="n">b</span><span class="p">){</span>
+    <span class="k">return</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>编译好后将so文件提取</p>
+
+<p><img src="/styles/images/2 NDK开发/image-20250124213059988.png" alt="image-20250124213059988" /></p>
+
+<p>add是按c++编译的，c++编译时对函数名有一个name mangling过程</p>
+
+<p><img src="/styles/images/2 NDK开发/image-20250124213147689.png" alt="image-20250124213147689" /></p>
+
+<p>add1按c编译</p>
+
+<p><img src="/styles/images/2 NDK开发/image-20250124213340588.png" alt="image-20250124213340588" /></p>
+
+<h3 id="125-动态注册">1.2.5 动态注册</h3>
+
+<table>
+  <tbody>
+    <tr>
+      <td>[【Android NDK 开发】JNI 动态注册 ( 动态注册流程</td>
+      <td>JNI_OnLoad 方法</td>
+      <td>JNINativeMethod 结构体</td>
+      <td>GetEnv</td>
+      <td>RegisterNatives )-腾讯云开发者社区-腾讯云](https://cloud.tencent.com/developer/article/2246768)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>静态注册 : 使用 Java_包名_类名_方法名(JNIEnv* env, jobject obj, …) 方式进行注册是静态注册            动态注册 : 将 C/C++ 中的本地方法 与 Java 中的方法对应起来 , 就需要使用动态注册</p>
+
+<p><strong>原理：</strong></p>
+
+<p>当执行Syetem.loadLibrary或System.load</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>public class MainActivity extends AppCompatActivity {
+
+    // Used to load the 'reflectiontest' library on application startup.
+    static {
+        System.loadLibrary("reflectiontest");
+        //System.load("so绝对路径")
+    }
+</code></pre></div></div>
+
+<p>当一个so被加载后，JNI_OnLoad就会被调用，查询so中的导出符号表，注册给JVM来完成调用。</p>
+
+<p><strong>动态注册流程</strong> :</p>
+
+<ol>
+  <li>声明 Java 层 Native 方法</li>
+  <li>准备数据 JNINativeMethod methods[] 数组</li>
+  <li>编写 JNI_OnLoad 方法</li>
+  <li>获取 JNIEnv 指针</li>
+  <li>获取 Java 类</li>
+  <li>进行动态注册</li>
+</ol>
+
+<h4 id="1251-jni_onload">1.2.5.1 <strong>JNI_OnLoad</strong></h4>
+
+<ol>
+  <li>
+    <p>JNI_Onload 方法在 Java 层执行 System.loadLibrary(“native-lib”) 代码时调用的方法     主要是执行一些 JNI 初始化操作</p>
+  </li>
+  <li>
+    <p>JNI_Onload 常见操作 :</p>
+  </li>
+</ol>
+
+<ul>
+  <li>① 保存 JavaVM 对象 , 使用全局变量记录该 Java 虚拟机对象</li>
+  <li>② 动态注册 : 动态注册是该方法中最常见的操作</li>
+</ul>
+
+<ol>
+  <li>JNI_Onload 参数说明 :</li>
+</ol>
+
+<ul>
+  <li>JavaVM *vm : 代表了 Java 虚拟机</li>
+  <li>void *r : 一般是 NULL</li>
+</ul>
+
+<ol>
+  <li>JNI_Onload 返回值说明 :</li>
+</ol>
+
+<ul>
+  <li>
+    <p>int 类型返回值代表了当前 NDK 使用的 JNI 版本</p>
+  </li>
+  <li>
+    <p>JNI 版本 中可选的有四个值 , 但是只能选择返回后三个 JNI_VERSION_1_2 , JNI_VERSION_1_4 , JNI_VERSION_1_6 。返回上述三个值任意一个没有区别            返回 JNI_VERSION_1_1 会报错</p>
+  </li>
+  <li>
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>#define JNI_VERSION_1_1 0x00010001            
+#define JNI_VERSION_1_2 0x00010002            
+#define JNI_VERSION_1_4 0x00010004            
+#define JNI_VERSION_1_6 0x00010006             
+这四个值分别代表了 JDK 1.1 , 1.2 , 1.4 , 1.6 对应的 JNI 版本
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h4 id="1252-案例">1.2.5.2 案例</h4>
+
+<p>Java层实现</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.example.dynamicregister</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">androidx.appcompat.app.AppCompatActivity</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">android.os.Bundle</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.widget.TextView</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">com.example.dynamicregister.databinding.ActivityMainBinding</span><span class="o">;</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">MainActivity</span> <span class="kd">extends</span> <span class="nc">AppCompatActivity</span> <span class="o">{</span>
+
+    <span class="c1">// Used to load the 'dynamicregister' library on application startup.</span>
+    <span class="kd">static</span> <span class="o">{</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">loadLibrary</span><span class="o">(</span><span class="s">"dynamicregister"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="nc">ActivityMainBinding</span> <span class="n">binding</span><span class="o">;</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+
+        <span class="n">binding</span> <span class="o">=</span> <span class="nc">ActivityMainBinding</span><span class="o">.</span><span class="na">inflate</span><span class="o">(</span><span class="n">getLayoutInflater</span><span class="o">());</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="n">binding</span><span class="o">.</span><span class="na">getRoot</span><span class="o">());</span>
+
+        <span class="c1">// Example of a call to a native method</span>
+        <span class="nc">TextView</span> <span class="n">tv</span> <span class="o">=</span> <span class="n">binding</span><span class="o">.</span><span class="na">sampleText</span><span class="o">;</span>
+        <span class="n">tv</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="n">stringFromJNI</span><span class="o">());</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">dynamicRegisterJavaMethod</span><span class="o">();</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">dynamicRegisterJavaMethod1</span><span class="o">(</span><span class="mi">10</span><span class="o">);</span>
+    <span class="o">}</span>
+
+
+    <span class="kd">public</span> <span class="kd">native</span> <span class="nc">String</span> <span class="nf">stringFromJNI</span><span class="o">();</span>
+    <span class="kd">public</span> <span class="kd">native</span> <span class="kt">void</span> <span class="nf">dynamicRegisterJavaMethod</span><span class="o">();</span>
+    <span class="kd">public</span> <span class="kd">native</span> <span class="kt">int</span> <span class="nf">dynamicRegisterJavaMethod1</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">);</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><strong>C++层实现</strong></p>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;jni.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string&gt;</span><span class="cp">
+#include</span> <span class="cpf">"android/log.h"</span><span class="cp">
+</span>
+<span class="c1">//使用全局变量保存Java vm对象</span>
+<span class="n">JavaVM</span> <span class="o">*</span><span class="n">_vm</span><span class="p">;</span>
+
+<span class="k">extern</span> <span class="s">"C"</span> <span class="n">JNIEXPORT</span> <span class="n">jstring</span> <span class="n">JNICALL</span>
+<span class="nf">Java_com_example_dynamicregister_MainActivity_stringFromJNI</span><span class="p">(</span>
+        <span class="n">JNIEnv</span><span class="o">*</span> <span class="n">env</span><span class="p">,</span>
+        <span class="n">jobject</span> <span class="cm">/* this */</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">hello</span> <span class="o">=</span> <span class="s">"Hello from C++"</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">NewStringUTF</span><span class="p">(</span><span class="n">hello</span><span class="p">.</span><span class="n">c_str</span><span class="p">());</span>
+<span class="p">}</span>
+
+<span class="c1">// 动态注册对应的 C/C++ 本地方法</span>
+<span class="kt">void</span> <span class="nf">dynamicRegisterCMethod</span><span class="p">(</span><span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span><span class="n">jobject</span> <span class="n">obj</span><span class="p">){</span>
+
+    <span class="n">__android_log_print</span><span class="p">(</span><span class="n">ANDROID_LOG_INFO</span><span class="p">,</span> <span class="s">"JNI_TAG"</span><span class="p">,</span> <span class="s">"dynamicRegisterCMethod"</span><span class="p">);</span>
+
+<span class="p">}</span>
+
+<span class="n">jint</span> <span class="nf">dynamicRegisterCMethod1</span><span class="p">(</span><span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="n">jobject</span> <span class="n">obj</span><span class="p">,</span> <span class="n">jint</span> <span class="n">i</span><span class="p">){</span>
+
+    <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"JNI_TAG"</span><span class="p">,</span> <span class="s">"dynamicRegisterCMethod2 : %d"</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// 该数组中 , 每个元素都是一个 JNI 的 Native 方法</span>
+<span class="k">static</span> <span class="k">const</span> <span class="n">JNINativeMethod</span> <span class="n">methods</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">{</span><span class="s">"dynamicRegisterJavaMethod"</span><span class="p">,</span> <span class="s">"()V"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">dynamicRegisterCMethod</span><span class="p">},</span>
+        <span class="p">{</span><span class="s">"dynamicRegisterJavaMethod1"</span><span class="p">,</span> <span class="s">"(I)I"</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">dynamicRegisterCMethod1</span><span class="p">}</span>
+<span class="p">};</span>
+
+<span class="cm">/*
+    动态注册的 Java 类名称
+    注意 : 包名类名之间使用 "/" 分割
+ */</span>
+<span class="k">static</span> <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">className</span> <span class="o">=</span> <span class="s">"com/example/dynamicregister/MainActivity"</span><span class="p">;</span>
+
+<span class="n">JNIEXPORT</span> <span class="n">jint</span> <span class="nf">JNI_OnLoad</span><span class="p">(</span><span class="n">JavaVM</span> <span class="o">*</span><span class="n">vm</span><span class="p">,</span><span class="kt">void</span><span class="o">*</span> <span class="n">reversed</span><span class="p">){</span>
+    <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-jni"</span><span class="p">,</span> <span class="s">"JNI_Onload"</span><span class="p">);</span>
+    <span class="c1">//将 Java 虚拟机对象记录到全局变量中</span>
+    <span class="n">_vm</span> <span class="o">=</span> <span class="n">vm</span><span class="p">;</span>
+    <span class="c1">//动态注册</span>
+    <span class="c1">//1.获取JNIEnv JNI 环境 , 需要从 JavaVM 获取</span>
+    <span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span> <span class="o">=</span> <span class="nb">nullptr</span><span class="p">;</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">vm</span><span class="o">-&gt;</span><span class="n">GetEnv</span><span class="p">((</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">env</span><span class="p">,</span> <span class="n">JNI_VERSION_1_6</span><span class="p">)</span><span class="o">!=</span><span class="n">JNI_OK</span><span class="p">){</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="c1">//2.获取要动态注册的 Java 类的 Class 对象</span>
+    <span class="n">jclass</span> <span class="n">jclazz</span> <span class="o">=</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">FindClass</span><span class="p">(</span><span class="n">className</span><span class="p">);</span>
+    <span class="c1">//3.注册</span>
+    <span class="cm">/*
+      jint RegisterNatives(
+                jclass clazz,                   //要注册的 Java 类
+                const JNINativeMethod* methods, //JNI注册方法数组
+                jint nMethods                   //要注册的 JNI 方法个数
+            )
+     * */</span>
+    <span class="n">env</span><span class="o">-&gt;</span><span class="n">RegisterNatives</span><span class="p">(</span><span class="n">jclazz</span><span class="p">,</span> <span class="n">methods</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">methods</span><span class="p">)</span> <span class="o">/</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">JNINativeMethod</span><span class="p">));</span>
+    <span class="k">return</span> <span class="n">JNI_VERSION_1_6</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250126172338527.png" alt="image-20250126172338527" /></p>
+
+<h3 id="126-数据类型">1.2.6 数据类型</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>C++ 数据类型</th>
+      <th>Java 数据类型</th>
+      <th>JNI 数据类型名</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>jint</td>
+      <td>int</td>
+      <td>“I”</td>
+    </tr>
+    <tr>
+      <td>jboolean</td>
+      <td>boolean</td>
+      <td>“Z”</td>
+    </tr>
+    <tr>
+      <td>jbyte</td>
+      <td>byte</td>
+      <td>“B”</td>
+    </tr>
+    <tr>
+      <td>jchar</td>
+      <td>char</td>
+      <td>“C”</td>
+    </tr>
+    <tr>
+      <td>jshort</td>
+      <td>short</td>
+      <td>“S”</td>
+    </tr>
+    <tr>
+      <td>jlong</td>
+      <td>long</td>
+      <td>“J”</td>
+    </tr>
+    <tr>
+      <td>jfloat</td>
+      <td>float</td>
+      <td>“F”</td>
+    </tr>
+    <tr>
+      <td>jdouble</td>
+      <td>double</td>
+      <td>“D”</td>
+    </tr>
+    <tr>
+      <td>jobject</td>
+      <td>Object</td>
+      <td>“Ljava/lang/Object;”</td>
+    </tr>
+    <tr>
+      <td>jstring</td>
+      <td>String</td>
+      <td>“Ljava/lang/String;”</td>
+    </tr>
+    <tr>
+      <td>jarray</td>
+      <td>Array</td>
+      <td>“[elementType”</td>
+    </tr>
+    <tr>
+      <td>jobjectArray</td>
+      <td>Object[]</td>
+      <td>“[Ljava/lang/Object;”</td>
+    </tr>
+    <tr>
+      <td>jbooleanArray</td>
+      <td>boolean[]</td>
+      <td>“[Z”</td>
+    </tr>
+    <tr>
+      <td>jbyteArray</td>
+      <td>byte[]</td>
+      <td>“[B”</td>
+    </tr>
+    <tr>
+      <td>jcharArray</td>
+      <td>char[]</td>
+      <td>“[C”</td>
+    </tr>
+    <tr>
+      <td>jshortArray</td>
+      <td>short[]</td>
+      <td>“[S”</td>
+    </tr>
+    <tr>
+      <td>jintArray</td>
+      <td>int[]</td>
+      <td>“[I”</td>
+    </tr>
+    <tr>
+      <td>jlongArray</td>
+      <td>long[]</td>
+      <td>“[J”</td>
+    </tr>
+    <tr>
+      <td>jfloatArray</td>
+      <td>float[]</td>
+      <td>“[F”</td>
+    </tr>
+    <tr>
+      <td>jdoubleArray</td>
+      <td>double[]</td>
+      <td>“[D”</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="1261-类描述符">1.2.6.1 类描述符</h4>
+
+<p>在java代码中的java.lang.String类的类描述符就是java/lang/string</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jclass intArrCls = env-&gt;FindClass("java/lang/String")
+jclass intArrCls = env-&gt;FindClass("Ljava/lang/String;)"
+</code></pre></div></div>
+
+<h4 id="1262-数组描述符"><strong>1.2.6.2</strong> 数组描述符</h4>
+
+<p>规则：[+其类型的域描述符</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>int[]     [I
+String[]  [Ljava/lang/String;
+</code></pre></div></div>
+
+<h4 id="1263-函数描述符">1.2.6.3 函数描述符</h4>
+
+<p>规则：(参数的域描述符的叠加)</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>String test()		Ljava/lang/String;
+int f(int i,Object object)		(ILjava/lang/Object;)I
+void set(byte[] bytes)		([B)V
+</code></pre></div></div>
+
+<h4 id="1264-域描述符">1.2.6.4 域描述符</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field Descriptor</th>
+      <th>Java Language Type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Z</strong></td>
+      <td><strong>boolean</strong></td>
+    </tr>
+    <tr>
+      <td>B</td>
+      <td>byte</td>
+    </tr>
+    <tr>
+      <td>C</td>
+      <td>char</td>
+    </tr>
+    <tr>
+      <td>S</td>
+      <td>short</td>
+    </tr>
+    <tr>
+      <td>I</td>
+      <td>int</td>
+    </tr>
+    <tr>
+      <td><strong>J</strong></td>
+      <td><strong>long</strong></td>
+    </tr>
+    <tr>
+      <td>F</td>
+      <td>float</td>
+    </tr>
+    <tr>
+      <td>D</td>
+      <td>double</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="案例"><strong>案例</strong></h4>
+
+<p>JAVA</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">native</span> <span class="kt">int</span> <span class="nf">intJNI</span><span class="o">(</span><span class="kt">int</span> <span class="n">a</span><span class="o">);</span>
+</code></pre></div></div>
+
+<p>CPP</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">extern</span> <span class="s">"C"</span>
+<span class="n">JNIEXPORT</span> <span class="n">jint</span> <span class="n">JNICALL</span>
+<span class="nf">Java_com_example_ndk_1demo_MainActivity_intJNI</span><span class="p">(</span><span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="n">jobject</span> <span class="n">thiz</span><span class="p">,</span><span class="n">jint</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="n">i</span><span class="o">&lt;</span><span class="n">a</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">){</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">+</span><span class="n">i</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>调用</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+
+    <span class="n">binding</span> <span class="o">=</span> <span class="nc">ActivityMainBinding</span><span class="o">.</span><span class="na">inflate</span><span class="o">(</span><span class="n">getLayoutInflater</span><span class="o">());</span>
+    <span class="n">setContentView</span><span class="o">(</span><span class="n">binding</span><span class="o">.</span><span class="na">getRoot</span><span class="o">());</span>
+
+    <span class="c1">// Example of a call to a native method</span>
+    <span class="nc">TextView</span> <span class="n">tv</span> <span class="o">=</span> <span class="n">binding</span><span class="o">.</span><span class="na">sampleText</span><span class="o">;</span>
+    <span class="n">tv</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="n">stringFromJNI</span><span class="o">());</span>
+    <span class="nc">MainActivity</span><span class="o">.</span><span class="na">staticJNI</span><span class="o">();</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">myFirstJNI</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="n">intJNI</span><span class="o">(</span><span class="mi">10</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span><span class="s">"result from jni:"</span><span class="o">+</span><span class="n">result</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250124214419366.png" alt="image-20250124214419366" /></p>
+
+<h1 id="2-java反射">2 Java反射</h1>
+
+<p><strong>相关类</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>类名</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Class类</td>
+      <td>代表类的实体，在运行的Java应用程序中表示类和接口</td>
+    </tr>
+    <tr>
+      <td>Field类</td>
+      <td>代表类的成员变量（成员变量也称为类的属性）</td>
+    </tr>
+    <tr>
+      <td>Method类</td>
+      <td>代表类的方法</td>
+    </tr>
+    <tr>
+      <td>Constructor类</td>
+      <td>代表类的构造方法</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="class类">Class类</h2>
+
+<h3 id="获取类相关的方法">获取类相关的方法</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>getClassLoader()</td>
+      <td>获取类的加载器</td>
+    </tr>
+    <tr>
+      <td>getClasses()</td>
+      <td>返回一个数组，数组中包含该类中所有<strong>公共</strong>类和接口类的对象</td>
+    </tr>
+    <tr>
+      <td>getDeclaredClasses()</td>
+      <td>返回一个数组，数组中包含类中所有类和接口类的对象</td>
+    </tr>
+    <tr>
+      <td><strong>forName(String className)</strong></td>
+      <td>根据类名返回类的对象</td>
+    </tr>
+    <tr>
+      <td>getName()</td>
+      <td>获取类的完整路径名称</td>
+    </tr>
+    <tr>
+      <td>newInstance()</td>
+      <td>创建类的实例</td>
+    </tr>
+    <tr>
+      <td>getPackage()</td>
+      <td>获取类的包</td>
+    </tr>
+    <tr>
+      <td>getSimpleName()</td>
+      <td>获取类的名字</td>
+    </tr>
+    <tr>
+      <td>getSuperclass()</td>
+      <td>获取当前类继承的父类的类名</td>
+    </tr>
+    <tr>
+      <td>getInterfaces()</td>
+      <td>获取当前类实现的类或接口</td>
+    </tr>
+    <tr>
+      <td>asSubclass(Class<u> clazz)</u></td>
+      <td>把传递进来的类的对象转换成代表子类的对象</td>
+    </tr>
+    <tr>
+      <td>Cast</td>
+      <td>把对象转换成代表类或接口类的对象</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="获取类中属性相关的方法">获取类中属性相关的方法</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>getField(String name)</td>
+      <td>获取<strong>某个</strong>公开的<strong>属性对象</strong></td>
+    </tr>
+    <tr>
+      <td>getFields()</td>
+      <td>获取所有公开的属性对象</td>
+    </tr>
+    <tr>
+      <td>getDeclaredField(String name)</td>
+      <td>获取某个属性对象</td>
+    </tr>
+    <tr>
+      <td>getDeclaredFields()</td>
+      <td>获取所有属性对象</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="获取类中注解相关的方法">获取类中注解相关的方法</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>getAnnotation(Class<a> annotationClass)</a></td>
+      <td>返回该类中与参数类型匹配的公开注解对象</td>
+    </tr>
+    <tr>
+      <td>getAnnotations()</td>
+      <td>返回该类所有的公开注解对象</td>
+    </tr>
+    <tr>
+      <td>getDeclaredAnnotation(Class<a> annotationClass)</a></td>
+      <td>返回该类中与参数类型匹配的所有注解对象</td>
+    </tr>
+    <tr>
+      <td>getDeclaredAnnotations()</td>
+      <td>返回该类所有的注解对象</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="获取类中构造器相关的方法">获取类中构造器相关的方法</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>getConstructor(Class&lt;?&gt;… parameterTypes)</td>
+      <td>获取该类中与参数类型匹配的公开构造方法</td>
+    </tr>
+    <tr>
+      <td>getConstructors()</td>
+      <td>获取该类的所有公开构造方法</td>
+    </tr>
+    <tr>
+      <td>getDeclaredConstructor(Class&lt;?&gt;… parameterTypes)</td>
+      <td>获取该类中与参数类型匹配的构造方法</td>
+    </tr>
+    <tr>
+      <td>getDeclaredConstructors()</td>
+      <td>获取该类所有构造方法</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="获取类中方法相关的方法">获取类中方法相关的方法</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>getMethod(String name, Class&lt;?&gt;… parameterTypes)</td>
+      <td>获取该类某个公开的方法</td>
+    </tr>
+    <tr>
+      <td>getMethods()</td>
+      <td>获取该类所有公开的方法</td>
+    </tr>
+    <tr>
+      <td>getDeclaredMethod(String name, Class&lt;?&gt;… parameterTypes)</td>
+      <td>获取该类某个方法</td>
+    </tr>
+    <tr>
+      <td>getDeclaredMethods()</td>
+      <td>获取该类所有方法</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="其他">其他</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>isAnnotation()</td>
+      <td>如果是注解类则返回true</td>
+    </tr>
+    <tr>
+      <td>isAnnotationPresent(Class&lt;? extends Annotation&gt; annotationClass)</td>
+      <td>如果是指定类型注解类则返回true</td>
+    </tr>
+    <tr>
+      <td>isAnonymousClass()</td>
+      <td>如果是匿名类则返回true</td>
+    </tr>
+    <tr>
+      <td>isArray()</td>
+      <td>如果是一个数组类则返回true</td>
+    </tr>
+    <tr>
+      <td>isEnum()</td>
+      <td>如果是枚举类则返回true</td>
+    </tr>
+    <tr>
+      <td>isInstance(Object obj)</td>
+      <td>如果obj是该类的实例则返回true</td>
+    </tr>
+    <tr>
+      <td>isInterface()</td>
+      <td>如果是接口类则返回true</td>
+    </tr>
+    <tr>
+      <td>isLocalClass()</td>
+      <td>如果是局部类则返回true</td>
+    </tr>
+    <tr>
+      <td>isMemberClass()</td>
+      <td>如果是内部类则返回true</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="field类">Field类</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>equals(Object obj)</td>
+      <td>属性与obj相等则返回true</td>
+    </tr>
+    <tr>
+      <td>get(Object obj)</td>
+      <td>获取obj中对应的属性值</td>
+    </tr>
+    <tr>
+      <td>set(Object obj, Object value)</td>
+      <td>设置obj中对应属性值</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="method类">Method类</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>invoke(Object obj, Object… args)</td>
+      <td>传递object对象及参数调用该对象对应的方法</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="constructor类">Constructor类</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>newInstance(Object… initargs)</td>
+      <td>根据传递的参数创建类的对象</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="实现案例">实现案例</h2>
+
+<h3 id="新建一个class-test">新建一个class Test</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.example.reflectiontest</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">android.util.Log</span><span class="o">;</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">Test</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="n">flag</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="kd">public</span> <span class="nf">Test</span><span class="o">(){</span>
+        <span class="n">flag</span> <span class="o">=</span> <span class="s">"Test()"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="nf">Test</span><span class="o">(</span><span class="nc">String</span> <span class="n">arg</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">flag</span> <span class="o">=</span> <span class="s">"Test(String arg)"</span> <span class="o">+</span> <span class="n">arg</span><span class="o">;</span>
+
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="nf">Test</span><span class="o">(</span><span class="nc">String</span> <span class="n">arg1</span><span class="o">,</span> <span class="kt">int</span> <span class="n">arg2</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">flag</span> <span class="o">=</span> <span class="s">"Test(String arg1,int arg2)"</span><span class="o">+</span><span class="n">arg1</span><span class="o">+</span><span class="n">arg2</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="nc">String</span> <span class="n">publicStaticField</span> <span class="o">=</span> <span class="s">"staticField"</span><span class="o">;</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="n">publicField</span> <span class="o">=</span> <span class="s">"publicField"</span><span class="o">;</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="nc">String</span> <span class="n">privateStaticField</span> <span class="o">=</span> <span class="s">"privatestaticField"</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="nc">String</span> <span class="n">privateField</span> <span class="o">=</span> <span class="s">"privateField"</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">publicStaticFunc</span><span class="o">(){</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span><span class="s">"publicStaticFunc"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">publicFunc</span><span class="o">(){</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span><span class="s">"publicFunc"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">privateStaticFunc</span><span class="o">(){</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span><span class="s">"privateStaticFunc"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span>  <span class="kt">void</span> <span class="nf">privateFunc</span><span class="o">(){</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span><span class="s">"privateFunc"</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+</code></pre></div></div>
+
+<h3 id="通过反射调用java类">通过反射调用Java类</h3>
+
+<h4 id="属性相关测试">属性相关测试</h4>
+
+<p><strong>两种方法获取类对象</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">testField</span><span class="o">(){</span>
+    <span class="c1">// loadClass</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">Class</span> <span class="n">testClazz</span> <span class="o">=</span> <span class="nc">MainActivity</span><span class="o">.</span><span class="na">class</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">().</span><span class="na">loadClass</span><span class="o">(</span><span class="s">"com.example.reflectiontest.Test"</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="c1">// forName</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">Class</span> <span class="n">testClazz2</span> <span class="o">=</span> <span class="nc">Class</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="s">"com.example.reflectiontest.Test"</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><strong>获取属性</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Class</span> <span class="n">testClazz3</span> <span class="o">=</span> <span class="nc">Test</span><span class="o">.</span><span class="na">class</span><span class="o">;</span>
+<span class="nc">Field</span> <span class="n">publicStaticField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"publicStaticField"</span><span class="o">);</span>
+<span class="nc">Field</span> <span class="n">publicStaticField_field1</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getField</span><span class="o">(</span><span class="s">"privateStaticField"</span><span class="o">);</span>
+<span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy1"</span><span class="o">,</span> <span class="nc">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">publicStaticField_field1</span><span class="o">));</span> <span class="c1">//此处会产生报错，非Declared方法不能获取私有属性</span>
+</code></pre></div></div>
+
+<p><strong>分别使用两种方式获取所有属性</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Class</span> <span class="n">testClazz3</span> <span class="o">=</span> <span class="nc">Test</span><span class="o">.</span><span class="na">class</span><span class="o">;</span>
+<span class="nc">Field</span><span class="o">[]</span> <span class="n">publicFields</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getFields</span><span class="o">();</span>
+<span class="k">for</span> <span class="o">(</span><span class="nc">Field</span> <span class="n">publicField</span> <span class="o">:</span> <span class="n">publicFields</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"getFields-&gt;"</span><span class="o">+</span> <span class="n">publicField</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="nc">Field</span><span class="o">[]</span> <span class="nc">AllFields</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredFields</span><span class="o">();</span>
+<span class="k">for</span> <span class="o">(</span><span class="nc">Field</span> <span class="n">field</span> <span class="o">:</span> <span class="nc">AllFields</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"getAllFields-&gt;"</span><span class="o">+</span> <span class="n">field</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250126133826417.png" alt="image-20250126133826417" /></p>
+
+<p><strong>打印对应的内容</strong></p>
+
+<ol>
+  <li>访问静态属性不需要传入对象</li>
+  <li>访问私有属性需要先设置其权限</li>
+  <li>访问非静态属性的内容需要传入实例对象</li>
+  <li>通过反射获取构造器再获取实例对象</li>
+</ol>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Field</span> <span class="n">publicStaticField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"publicStaticField"</span><span class="o">);</span>
+<span class="c1">//访问静态属性不需要传入对象</span>
+<span class="nc">String</span> <span class="n">obj1</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">publicStaticField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+<span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"StaticStr"</span> <span class="o">+</span> <span class="n">obj1</span><span class="o">);</span>
+<span class="c1">//访问私有属性需要先设置其权限</span>
+<span class="nc">Field</span> <span class="n">privateStaticField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"privateStaticField"</span><span class="o">);</span>
+<span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+<span class="nc">String</span> <span class="n">obj2</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+<span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"privateStaticStr"</span> <span class="o">+</span> <span class="n">obj2</span><span class="o">);</span>
+<span class="c1">//修改</span>
+<span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="kc">null</span><span class="o">,</span><span class="s">"modifyed"</span><span class="o">);</span>
+<span class="nc">String</span> <span class="n">obj3</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+<span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"modifiedPrivateStaticStr"</span> <span class="o">+</span> <span class="n">obj3</span><span class="o">);</span>
+
+<span class="c1">//访问非静态属性的内容需要传入实例对象</span>
+<span class="nc">Field</span> <span class="n">publicField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"publicField"</span><span class="o">);</span>
+<span class="c1">//通过反射获取构造器再获取实例对象</span>
+<span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getConstructor</span><span class="o">();</span>
+<span class="nc">Test</span> <span class="n">test</span> <span class="o">=</span>  <span class="n">constructor</span><span class="o">.</span><span class="na">newInstance</span><span class="o">();</span>
+<span class="nc">String</span> <span class="n">obj4</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">publicField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">test</span><span class="o">);</span>
+<span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"nonStaticField"</span> <span class="o">+</span> <span class="n">obj4</span><span class="o">);</span>
+</code></pre></div></div>
+
+<hr />
+
+<p>属性相关测试完整代码</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">testField</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">NoSuchFieldException</span><span class="o">,</span> <span class="nc">IllegalAccessException</span><span class="o">,</span> <span class="nc">NoSuchMethodException</span><span class="o">,</span> <span class="nc">InvocationTargetException</span><span class="o">,</span> <span class="nc">InstantiationException</span> <span class="o">{</span>
+    <span class="c1">// loadClass</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">Class</span> <span class="n">testClazz</span> <span class="o">=</span> <span class="nc">MainActivity</span><span class="o">.</span><span class="na">class</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">().</span><span class="na">loadClass</span><span class="o">(</span><span class="s">"com.example.reflectiontest.Test"</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="c1">// forName</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">Class</span> <span class="n">testClazz2</span> <span class="o">=</span> <span class="nc">Class</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="s">"com.example.reflectiontest.Test"</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="nc">Class</span> <span class="n">testClazz3</span> <span class="o">=</span> <span class="nc">Test</span><span class="o">.</span><span class="na">class</span><span class="o">;</span>
+    <span class="nc">Field</span><span class="o">[]</span> <span class="n">publicFields</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getFields</span><span class="o">();</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Field</span> <span class="n">publicField</span> <span class="o">:</span> <span class="n">publicFields</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"getFields-&gt;"</span><span class="o">+</span> <span class="n">publicField</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nc">Field</span><span class="o">[]</span> <span class="nc">AllFields</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredFields</span><span class="o">();</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Field</span> <span class="n">field</span> <span class="o">:</span> <span class="nc">AllFields</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"getAllFields-&gt;"</span><span class="o">+</span> <span class="n">field</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="nc">Field</span> <span class="n">publicStaticField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"publicStaticField"</span><span class="o">);</span>
+    <span class="c1">//访问静态属性不需要传入对象</span>
+    <span class="nc">String</span> <span class="n">obj1</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">publicStaticField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"StaticStr"</span> <span class="o">+</span> <span class="n">obj1</span><span class="o">);</span>
+    <span class="c1">//访问私有属性需要先设置其权限</span>
+    <span class="nc">Field</span> <span class="n">privateStaticField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"privateStaticField"</span><span class="o">);</span>
+    <span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="nc">String</span> <span class="n">obj2</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"privateStaticStr"</span> <span class="o">+</span> <span class="n">obj2</span><span class="o">);</span>
+    <span class="c1">//修改</span>
+    <span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="kc">null</span><span class="o">,</span><span class="s">"modifyed"</span><span class="o">);</span>
+    <span class="nc">String</span> <span class="n">obj3</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">privateStaticField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"modifiedPrivateStaticStr"</span> <span class="o">+</span> <span class="n">obj3</span><span class="o">);</span>
+
+    <span class="c1">//访问非静态属性的内容需要传入实例对象</span>
+    <span class="nc">Field</span> <span class="n">publicField_field</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"publicField"</span><span class="o">);</span>
+    <span class="c1">//通过反射获取构造器再获取实例对象</span>
+    <span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor</span> <span class="o">=</span> <span class="n">testClazz3</span><span class="o">.</span><span class="na">getConstructor</span><span class="o">();</span>
+    <span class="nc">Test</span> <span class="n">test</span> <span class="o">=</span>  <span class="n">constructor</span><span class="o">.</span><span class="na">newInstance</span><span class="o">();</span>
+    <span class="nc">String</span> <span class="n">obj4</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">publicField_field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">test</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"nonStaticField"</span> <span class="o">+</span> <span class="n">obj4</span><span class="o">);</span>
+
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>public void testField() throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
+    // loadClass
+    try {
+        Class testClazz = MainActivity.class.getClassLoader().loadClass("com.example.reflectiontest.Test");
+    } catch (ClassNotFoundException e) {
+        throw new RuntimeException(e);
+    }
+    // forName
+    try {
+        Class testClazz2 = Class.forName("com.example.reflectiontest.Test");
+    } catch (ClassNotFoundException e) {
+        throw new RuntimeException(e);
+    }
+    Class testClazz3 = Test.class;
+    Field[] publicFields = testClazz3.getFields();
+    for (Field publicField : publicFields) {
+        Log.i("qfzwy", "getFields-&gt;"+ publicField);
+    }
+
+    Field[] AllFields = testClazz3.getDeclaredFields();
+    for (Field field : AllFields) {
+        Log.i("qfzwy", "getAllFields-&gt;"+ field);
+    }
+    Field publicStaticField_field = testClazz3.getDeclaredField("publicStaticField");
+    //访问静态属性不需要传入对象
+    String obj1 = (String) publicStaticField_field.get(null);
+    Log.i("qfzwy", "StaticStr" + obj1);
+    //访问私有属性需要先设置其权限
+    Field privateStaticField_field = testClazz3.getDeclaredField("privateStaticField");
+    privateStaticField_field.setAccessible(true);
+    String obj2 = (String) privateStaticField_field.get(null);
+    Log.i("qfzwy", "privateStaticStr" + obj2);
+    //修改
+    privateStaticField_field.set(null,"modifyed");
+    String obj3 = (String) privateStaticField_field.get(null);
+    Log.i("qfzwy", "modifiedPrivateStaticStr" + obj3);
+
+    //访问非静态属性的内容需要传入实例对象
+    Field publicField_field = testClazz3.getDeclaredField("publicField");
+    //通过反射获取构造器再获取实例对象
+    Constructor&lt;Test&gt; constructor = testClazz3.getConstructor();
+    Test test =  constructor.newInstance();
+    String obj4 = (String) publicField_field.get(test);
+    Log.i("qfzwy", "nonStaticField" + obj4);
+    
+    
+}
+</code></pre></div></div>
+
+<h4 id="方法相关测试">方法相关测试</h4>
+
+<blockquote>
+  <p>Declared作用和Field一样就不再做测试</p>
+</blockquote>
+
+<hr />
+
+<p><strong>获取所有方法</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Class</span> <span class="n">testClazz</span> <span class="o">=</span> <span class="nc">Test</span><span class="o">.</span><span class="na">class</span><span class="o">;</span>
+<span class="nc">Method</span><span class="o">[]</span> <span class="n">methods</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredMethods</span><span class="o">();</span>
+<span class="k">for</span> <span class="o">(</span><span class="nc">Method</span> <span class="n">method</span> <span class="o">:</span> <span class="n">methods</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"getDeclaredMethods:"</span><span class="o">+</span><span class="n">method</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250126135952720.png" alt="image-20250126135952720" /></p>
+
+<p><strong>通过反射进行调用</strong></p>
+
+<ol>
+  <li>静态与非静态的区别</li>
+  <li>私有与公有的区别</li>
+</ol>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Method</span> <span class="n">publicStaticFunc_method</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredMethod</span><span class="o">(</span><span class="s">"publicStaticFunc"</span><span class="o">);</span>
+<span class="n">publicStaticFunc_method</span><span class="o">.</span><span class="na">invoke</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+
+<span class="nc">Method</span> <span class="n">privateFunc_method</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredMethod</span><span class="o">(</span><span class="s">"privateFunc"</span><span class="o">);</span>
+<span class="c1">// 私有方法设置属性为true</span>
+<span class="n">privateFunc_method</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+<span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getConstructor</span><span class="o">();</span>
+<span class="c1">// 非静态方法获取实例进行调用</span>
+<span class="nc">Test</span> <span class="n">test</span> <span class="o">=</span> <span class="n">constructor</span><span class="o">.</span><span class="na">newInstance</span><span class="o">();</span>
+<span class="n">privateFunc_method</span><span class="o">.</span><span class="na">invoke</span><span class="o">(</span><span class="n">test</span><span class="o">);</span>
+</code></pre></div></div>
+
+<hr />
+
+<p><strong>完整代码</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">testMethod</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">NoSuchMethodException</span><span class="o">,</span> <span class="nc">InvocationTargetException</span><span class="o">,</span> <span class="nc">IllegalAccessException</span><span class="o">,</span> <span class="nc">InstantiationException</span> <span class="o">{</span>
+    <span class="nc">Class</span> <span class="n">testClazz</span> <span class="o">=</span> <span class="nc">Test</span><span class="o">.</span><span class="na">class</span><span class="o">;</span>
+    <span class="nc">Method</span><span class="o">[]</span> <span class="n">methods</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredMethods</span><span class="o">();</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Method</span> <span class="n">method</span> <span class="o">:</span> <span class="n">methods</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"getDeclaredMethods:"</span><span class="o">+</span><span class="n">method</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="nc">Method</span> <span class="n">publicStaticFunc_method</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredMethod</span><span class="o">(</span><span class="s">"publicStaticFunc"</span><span class="o">);</span>
+    <span class="n">publicStaticFunc_method</span><span class="o">.</span><span class="na">invoke</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+
+    <span class="nc">Method</span> <span class="n">privateFunc_method</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredMethod</span><span class="o">(</span><span class="s">"privateFunc"</span><span class="o">);</span>
+    <span class="c1">// 私有方法设置属性为true</span>
+    <span class="n">privateFunc_method</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getConstructor</span><span class="o">();</span>
+    <span class="c1">// 非静态方法获取实例进行调用</span>
+    <span class="nc">Test</span> <span class="n">test</span> <span class="o">=</span> <span class="n">constructor</span><span class="o">.</span><span class="na">newInstance</span><span class="o">();</span>
+    <span class="n">privateFunc_method</span><span class="o">.</span><span class="na">invoke</span><span class="o">(</span><span class="n">test</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h4 id="构造器相关测试">构造器相关测试</h4>
+
+<p>直接给出完整代码</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">testConstructor</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">ClassNotFoundException</span><span class="o">,</span> <span class="nc">NoSuchMethodException</span><span class="o">,</span> <span class="nc">InvocationTargetException</span><span class="o">,</span> <span class="nc">IllegalAccessException</span><span class="o">,</span> <span class="nc">InstantiationException</span><span class="o">,</span> <span class="nc">NoSuchFieldException</span> <span class="o">{</span>
+    <span class="nc">Class</span> <span class="n">testClazz</span> <span class="o">=</span> <span class="nc">MainActivity</span><span class="o">.</span><span class="na">class</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">().</span><span class="na">loadClass</span><span class="o">(</span><span class="s">"com.example.reflectiontest.Test"</span><span class="o">);</span>
+    <span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;[]</span> <span class="n">constructors</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getConstructors</span><span class="o">();</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor</span> <span class="o">:</span> <span class="n">constructors</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"Constructor:"</span> <span class="o">+</span> <span class="n">constructor</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor1</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredConstructor</span><span class="o">();</span>
+    <span class="nc">Test</span> <span class="n">test1</span> <span class="o">=</span>  <span class="n">constructor1</span><span class="o">.</span><span class="na">newInstance</span><span class="o">();</span>
+    <span class="nc">Field</span> <span class="n">field1</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"flag"</span><span class="o">);</span>
+    <span class="nc">String</span> <span class="n">flag</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">field1</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">test1</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"constructor:"</span> <span class="o">+</span> <span class="n">flag</span><span class="o">);</span>
+
+    <span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor2</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredConstructor</span><span class="o">(</span><span class="nc">String</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+    <span class="nc">Test</span> <span class="n">test2</span> <span class="o">=</span> <span class="n">constructor2</span><span class="o">.</span><span class="na">newInstance</span><span class="o">(</span><span class="s">"hello String"</span><span class="o">);</span>
+    <span class="nc">Field</span> <span class="n">field2</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"flag"</span><span class="o">);</span>
+    <span class="nc">String</span> <span class="n">flag2</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">field2</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">test2</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"constructor:"</span> <span class="o">+</span> <span class="n">flag2</span><span class="o">);</span>
+
+    <span class="nc">Constructor</span><span class="o">&lt;</span><span class="nc">Test</span><span class="o">&gt;</span> <span class="n">constructor3</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredConstructor</span><span class="o">(</span><span class="nc">String</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="kt">int</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+    <span class="nc">Test</span> <span class="n">test3</span> <span class="o">=</span> <span class="n">constructor3</span><span class="o">.</span><span class="na">newInstance</span><span class="o">(</span><span class="s">"hello String and int"</span><span class="o">,</span> <span class="mi">666</span><span class="o">);</span>
+    <span class="nc">Field</span> <span class="n">field3</span> <span class="o">=</span> <span class="n">testClazz</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"flag"</span><span class="o">);</span>
+    <span class="nc">String</span> <span class="n">flag3</span> <span class="o">=</span> <span class="o">(</span><span class="nc">String</span><span class="o">)</span> <span class="n">field2</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">test3</span><span class="o">);</span>
+    <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"qfzwy"</span><span class="o">,</span> <span class="s">"constructor:"</span> <span class="o">+</span> <span class="n">flag3</span><span class="o">);</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250126141831101.png" alt="image-20250126141831101" /></p>
+
+<h3 id="在c中通过反射调用java类">在C++中通过反射调用Java类</h3>
+
+<p>属性签名见1.2.6 数据类型</p>
+
+<ul>
+  <li>GetStringUTFChars（）函数可用于从给定的Java的jstring创建新的C字符串（char *），如果无法分配内存，则该函数返回NULL。 检查NULL是一个好习惯。在不使用GetStringUTFChars（）返回的字符串时，需要来释放内存和引用以便可以对其进行垃圾回收，因此之后应始终调用ReleaseStringUTFChars（）。</li>
+  <li>NewStringUTF（）函数使用给定的C字符串创建一个新的JNI字符串（jstring）</li>
+</ul>
+
+<div class="language-c++ highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// publicStaticField</span>
+<span class="n">jclass</span> <span class="n">TestJclass</span> <span class="o">=</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">FindClass</span><span class="p">(</span><span class="s">"com/example/reflectiontest/Test"</span><span class="p">);</span>
+<span class="n">jfieldID</span> <span class="n">publicStaticField_jfieldID</span> <span class="o">=</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">GetStaticFieldID</span><span class="p">(</span><span class="n">TestJclass</span><span class="p">,</span>
+                                                            <span class="s">"publicStaticField"</span><span class="p">,</span>
+                                                            <span class="s">"Ljava/lang/String;"</span><span class="p">);</span>
+<span class="n">jstring</span> <span class="n">publicStaticField_content</span> <span class="o">=</span><span class="p">(</span><span class="n">jstring</span><span class="p">)</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">GetStaticObjectField</span><span class="p">(</span><span class="n">TestJclass</span><span class="p">,</span><span class="n">publicStaticField_jfieldID</span><span class="p">);</span>
+<span class="c1">// jstring转为c++字符串</span>
+<span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">content_ptr</span> <span class="o">=</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">GetStringUTFChars</span><span class="p">(</span><span class="n">publicStaticField_content</span><span class="p">,</span> <span class="nb">nullptr</span><span class="p">);</span>
+<span class="c1">// int __android_log_print(int prio, const char* tag, const char* fmt, ...)</span>
+<span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%s"</span><span class="p">,</span> <span class="n">content_ptr</span><span class="p">);</span>
+<span class="k">return</span> <span class="n">env</span><span class="o">-&gt;</span><span class="n">NewStringUTF</span><span class="p">(</span><span class="n">hello</span><span class="p">.</span><span class="n">c_str</span><span class="p">());</span>
+</code></pre></div></div>
+
+<h1 id="3-javavm和jnienv">3 JavaVM和JNIEnv</h1>
+
+<h2 id="31-javavm">3.1 JavaVM</h2>
+
+<ul>
+  <li>JavaVM 是虚拟机在 JNI 层的代表，一个<strong>进程</strong>只有一个 JavaVM，所有的<strong>线程</strong>共用一个 JavaVM</li>
+  <li>JNIInvokeInterface_结构封装和JVM相关的功能函数，如销毁JVM，获得当前线程的Java执行环境</li>
+</ul>
+
+<p><strong>JavaVM的获取</strong></p>
+
+<ol>
+  <li>在JNl onLoad中作为参数获得<code class="language-plaintext highlighter-rouge">JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reversed)</code>该函数由ART负责自动化查找和传入参数进行调用</li>
+  <li>通过JNlEnv的GetJavaVM函数获取，如下:JavaVM* thisjvm=nullptr;env-&gt;GetJavaVM(&amp;thisjvm);</li>
+</ol>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>JavaVM  *globalVM;  #定义一个全局变量
+
+#方式一
+JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reversed){
+    globalVM = vm;
+}
+
+#方式二
+Java_com_example_reflectiontest_MainActivity_stringFromJNI(
+        JNIEnv* env,
+        jobject /* this */) {
+    env-&gt;GetJavaVM(&amp;globalVM);
+
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="32-jnienv">3.2 JNIEnv</h2>
+
+<ul>
+  <li>指Java Native Interface Environment，是一个JNI接口指针，指向了本地方法的一个函数表，该函数表中的每一个成员指向了一个JNI函数，本地方法通过JNI函数来访问JVM中的数据结构</li>
+  <li>JNIEnv 表示 Java 调用 native 语言的环境，是一个封装了几乎全部 JNI 方法的指针。</li>
+  <li>JNIEnv 只在创建它的<strong>线程</strong>生效，不能跨线程传递，不同线程的 JNIEnv 彼此独立。</li>
+  <li>JNIEnv结构也是一个函数表(可以这么理解)，在Native代码中通过JNIEnv的函数表来操作Java数据或调用Java方法。</li>
+</ul>
+
+<p><strong>创建子线程</strong></p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="o">*</span><span class="nf">threadtest</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">args</span><span class="p">){</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%s,%d"</span><span class="p">,</span> <span class="s">"i am from thread"</span><span class="p">,</span><span class="n">i</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="n">pthread_exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">JNIEXPORT</span><span class="p">;</span> <span class="n">jint</span> <span class="nf">JNI_OnLoad</span><span class="p">(</span><span class="n">JavaVM</span> <span class="o">*</span><span class="n">vm</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">reversed</span><span class="p">){</span>
+    <span class="n">globalVM</span> <span class="o">=</span> <span class="n">vm</span><span class="p">;</span>
+    <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%s"</span><span class="p">,</span> <span class="s">"JNI_OnLoad is called"</span><span class="p">);</span>
+    <span class="n">jint</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="n">pthread_t</span> <span class="kr">thread</span><span class="p">;</span>
+    <span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="kr">thread</span><span class="p">,</span> <span class="nb">nullptr</span><span class="p">,</span><span class="n">threadtest</span><span class="p">,</span> <span class="nb">nullptr</span><span class="p">);</span>
+    <span class="n">pthread_join</span><span class="p">(</span><span class="kr">thread</span><span class="p">,</span> <span class="nb">nullptr</span><span class="p">);</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">JNI_VERSION_1_6</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250126155643312.png" alt="image-20250126155643312" /></p>
+
+<p><strong>在主进程中调用env</strong></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//在主线程获取env</span>
+<span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span> <span class="o">=</span> <span class="n">nullptr</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">vm</span><span class="o">-&gt;</span><span class="n">GetEnv</span><span class="p">((</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">env</span><span class="p">,</span> <span class="n">JNI_VERSION_1_6</span><span class="p">)</span><span class="o">==</span><span class="n">JNI_OK</span><span class="p">)</span> <span class="p">{</span>
+<span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%s"</span><span class="p">,</span> <span class="s">"JNIEnv is get"</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>在子线程中调用env</strong></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="o">*</span><span class="nf">threadtest</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">args</span><span class="p">){</span>
+
+    <span class="n">JNIEnv</span> <span class="o">*</span><span class="n">threadEnv</span> <span class="o">=</span> <span class="n">nullptr</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">globalVM</span><span class="o">-&gt;</span><span class="n">AttachCurrentThread</span><span class="p">(</span><span class="o">&amp;</span><span class="n">threadEnv</span><span class="p">,</span> <span class="n">nullptr</span><span class="p">)</span> <span class="o">==</span> <span class="n">JNI_OK</span><span class="p">){</span>
+        <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%p"</span><span class="p">,</span> <span class="n">threadEnv</span><span class="p">);</span>
+        <span class="n">jstring</span> <span class="n">jstring1</span> <span class="o">=</span> <span class="n">threadEnv</span><span class="o">-&gt;</span><span class="n">NewStringUTF</span><span class="p">(</span><span class="s">"thread jstring"</span><span class="p">);</span>
+        <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">content</span> <span class="o">=</span> <span class="n">threadEnv</span><span class="o">-&gt;</span><span class="n">GetStringUTFChars</span><span class="p">(</span><span class="n">jstring1</span><span class="p">,</span> <span class="n">nullptr</span><span class="p">);</span>
+        <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%s"</span><span class="p">,</span> <span class="n">content</span><span class="p">);</span>
+        <span class="c1">//释放</span>
+        <span class="n">threadEnv</span><span class="o">-&gt;</span><span class="n">ReleaseStringUTFChars</span><span class="p">(</span><span class="n">jstring1</span><span class="p">,</span> <span class="n">content</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span><span class="p">{</span>
+        <span class="n">__android_log_print</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s">"qfzwy-&gt;jni"</span><span class="p">,</span> <span class="s">"jni-&gt;%s"</span><span class="p">,</span> <span class="s">"failed"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="c1">//退出线程</span>
+    <span class="n">globalVM</span><span class="o">-&gt;</span><span class="n">DetachCurrentThread</span><span class="p">();</span>
+    <span class="n">pthread_exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/2 NDK开发/image-20250126161830640.png" alt="image-20250126161830640" /></p>
+
+<p><strong>注意</strong></p>
+
+<p>JNIEnv是当前Java线程的执行环境，一个JVM对应一个JavaVM结构，而一个JM中可能创建多个Java线程，使用pthread create新建的线程当使用AttachCurrentThread(&amp;env，NULL)获取到INIEnv后，<strong>该JNIEnv的ClassLoader并不是主线程的ClassLoader，因此也就无法加载app自己的Class</strong></p>
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

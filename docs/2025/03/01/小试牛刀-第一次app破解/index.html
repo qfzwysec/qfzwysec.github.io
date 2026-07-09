@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>小试牛刀-第一次app破解 - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783586459">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783586459">
+	<link rel="canonical" href="/2025/03/01/%E5%B0%8F%E8%AF%95%E7%89%9B%E5%88%80-%E7%AC%AC%E4%B8%80%E6%AC%A1app%E7%A0%B4%E8%A7%A3/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="小试牛刀-第一次app破解, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>移动安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>移动安全</span>
+          
+          <time datetime="2025-03-01T20:50:00+08:00">2025.03.01</time>
+          
+            <span>app实战</span>
+          
+        </div>
+
+        <h1>小试牛刀-第一次app破解</h1>
+
+        
+          <p class="post-description">一次 Android App 破解实战记录，从脱壳、修复、Trace 到会员判断逻辑定位。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <h1 id="实战记录">实战记录</h1>
+
+<p>最近总是睡不着，天天失眠，于是下载了一款助眠app，音乐很好听，可是也不便宜，于是开整。</p>
+
+<p>mt看一下基本情况，有壳</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301184606189.png" alt="image-20250301184606189" style="zoom:33%;" /></p>
+
+<p>使用了fridadexdump没成功，又没脱壳机，只能借助一下在线工具脱壳</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301184719660.png" alt="image-20250301184719660" style="zoom: 25%;" /></p>
+
+<p>脱完壳没法反编译，这里使用np修复一下</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301185000582.png" alt="image-20250301185000582" style="zoom: 33%;" /></p>
+
+<p>开始分析，个人习惯直接先上r0tracer分析堆栈，根据功能点去分析</p>
+
+<p>选个白噪音听听，没开会员只能试听，那思路就来了，如果找到破解会员的入口，首先就知道哪里会判断你是不是会员，比如这里，非会员只能试听，过一段时间后非会员就不能听。</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301190017627.png" alt="image-20250301190017627" style="zoom:33%;" /></p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301190219863.png" alt="image-20250301190219863" style="zoom:33%;" /></p>
+
+<p>那可能存在的判断点就在进入付费页面前，或者点击付费项目时。这里过一段时间后，点击任何音乐都会弹窗，那就trace一下看看点击后发生了什么</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301190801390.png" alt="image-20250301190801390" style="zoom:33%;" /></p>
+
+<p>再看一下对应的源码，和之前说的对应上了，大概猜测就是先判断是不是会员，如果不是看一下试听时间有没有结束。</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301191203900.png" alt="image-20250301191203900" style="zoom: 50%;" /></p>
+
+<p>如果没脱壳的话可以直接使用objection获取实例</p>
+
+<p>那么这里就很容易看出，common.b.i0()很可能是判断是否为会员的方法</p>
+
+<p>看到代码也是沉默了，应该直接来isvip大法的，不过熟悉一下思路总不是坏事。</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301191244937.png" alt="image-20250301191244937" /></p>
+
+<p>hook一下看看是否可行</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hook_vip</span><span class="p">(){</span>
+    <span class="kd">let</span> <span class="nx">b</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">xxx.sleep.common.b</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">b</span><span class="p">[</span><span class="dl">"</span><span class="s2">i0</span><span class="dl">"</span><span class="p">].</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`b.i0 is called`</span><span class="p">);</span>
+        <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">this</span><span class="p">[</span><span class="dl">"</span><span class="s2">i0</span><span class="dl">"</span><span class="p">]();</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`b.i0 result=</span><span class="p">${</span><span class="nx">result</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>可以听了</p>
+
+<p>接下来修改源码，然后重打包。</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301201622441.png" alt="image-20250301201622441" /></p>
+
+<p>这里使用np去除签名</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301201851064.png" alt="image-20250301201851064" style="zoom:33%;" /></p>
+
+<p>有两个大小一样的dex使用mt打开会自动去重，然后删掉空白的，最后再将脱完壳的dex重命名加入</p>
+
+<p>最后结果如下</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301202132173.png" alt="image-20250301202132173" style="zoom:50%;" /></p>
+
+<p>最后再进行一个签名就可以安装了，打开看看</p>
+
+<p><img src="/styles/images/帮助睡眠/image-20250301202225400.png" alt="image-20250301202225400" style="zoom:33%;" /></p>
+
+<p>都可以听了，没有试听或者弹窗提示。</p>
+
+<p>在hook的时候可能还有弹窗，直接修改源码后就没有了，可能那个弹窗的时机特别早，不是很好hook。</p>
+
+<p>后续会继续分析该软件的加密算法，道阻且长。</p>
+
+<p><strong>注：仅做技术交流。</strong></p>
+
+<p>条件允许还是买个mt会员，不然mt np换来换去挺麻烦的。</p>
+
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

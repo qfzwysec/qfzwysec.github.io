@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>桌面智能体沙箱研究 - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783586459">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783586459">
+	<link rel="canonical" href="/2026/07/09/%E6%A1%8C%E9%9D%A2%E6%99%BA%E8%83%BD%E4%BD%93%E6%B2%99%E7%AE%B1%E7%A0%94%E7%A9%B6/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="桌面智能体沙箱研究, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>AI安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>AI安全</span>
+          
+          <time datetime="2026-07-09T00:00:00+08:00">2026.07.09</time>
+          
+            <span>智能体安全</span>
+          
+        </div>
+
+        <h1>桌面智能体沙箱研究</h1>
+
+        
+          <p class="post-description">从国产桌面智能体、Codex guardian 与 Cursor 沙箱漏洞三个角度，梳理桌面智能体沙箱的执行隔离、自动审批和路径边界问题。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <p>最近正在学习智能体安全，目前主要聚焦于两类智能体安全</p>
+<ol>
+  <li>桌面智能体安全</li>
+  <li>企业智能体安全
+桌面智能体例如codex、Claude以及各大互联网公司推出的桌面智能体等。</li>
+</ol>
+
+<h1 id="国内某大厂桌面智能体">国内某大厂桌面智能体</h1>
+<p>先来看看国产桌面智能体保护机制
+国产的几款测试下来，只在一家智能体上看到了比较完善的沙箱保护。这里不透露具体智能体。</p>
+<h2 id="沙箱保护">沙箱保护</h2>
+<p>该智能体默认不启用沙箱。在未开启沙箱时，代码执行默认会直接调用本地终端。</p>
+
+<p>当开启安全保护后，系统会启动一个 VM 虚拟机，同时智能体自身也会修改代码执行逻辑。此时，智能体执行命令时使用的是 <code class="language-plaintext highlighter-rouge">mcp</code>：在沙箱开启状态下，<code class="language-plaintext highlighter-rouge">mcp</code> 会将命令发送到隔离的 Linux 虚拟机中执行；而在未开启沙箱时，它则会直接在主机上执行命令。</p>
+
+<p>这种机制确实能够有效保护主机安全，使代码执行等高风险操作与主机环境隔离，从而降低被攻击的可能性。但它也存在一些缺点：虚拟机资源通常有限，在运行大型项目时会比较吃力；此外，如果某些软件必须依赖本地环境运行，也会带来额外的不便。</p>
+
+<p>在研究过程中还发现一个有趣的现象：当该智能体运行期间，如果用户临时关闭沙箱，再要求智能体执行代码，系统会报错，并且会强制重新开启沙箱，在沙箱内执行命令。</p>
+
+<p>原因在于，前面提到开启 VM 后，智能体本身的代码执行逻辑已经被修改。即使用户随后关闭沙箱，<code class="language-plaintext highlighter-rouge">mcp</code> 的执行逻辑也不会动态切换回主机模式。</p>
+
+<h1 id="codex">Codex</h1>
+<p>国外的就以codex为例</p>
+<h2 id="沙箱保护-1">沙箱保护</h2>
+<p>codex用的是沙箱+guardian的保护机制。
+经常用Codex的都知道，他有几种安全机制：</p>
+<ol>
+  <li>请求批准</li>
+  <li>替我审批</li>
+  <li>完全访问权限
+相信大多数人都不会使用请求批准这个模式。这里分析他的guardian机制，就知道为什么这个模式那么难用。</li>
+</ol>
+
+<p>在非“完全访问权限下”所有的动作执行，比如写删文件，网络请求等行为都是经过沙箱的。</p>
+
+<h3 id="请求批准模式">请求批准模式</h3>
+<p>除了读文件，其余发生在工作区外的都要授权
+文件写删需要授权
+<img src="/styles/images/agent-sandbox-research/file-20260707152838095.png" alt="文件写入审批示例" />
+<img src="/styles/images/agent-sandbox-research/file-20260707152244486.png" alt="文件删除审批示例" />
+网络访问需要授权
+<img src="/styles/images/agent-sandbox-research/file-20260707152412275.png" alt="网络访问审批示例" />
+授权之后他会把这次命令拿到沙箱外执行。</p>
+
+<h3 id="替我审批模式guardian">替我审批模式（guardian）</h3>
+
+<p>直觉上，我们可能以为“替我审批”就是系统默认相信主 Agent，让它自己判断命令是否安全。但从 Codex 的实现看，机制要更细。Codex 并不是让主 Agent 自己给自己放行，而是把原本应该弹给用户的 approval prompt，路由给一个专门的审查子会话。源码里这个角色叫 <strong>guardian</strong>。</p>
+
+<p>主 Agent 想执行命令、修改文件、访问网络，或者调用需要确认的 MCP 工具时，请求会先经过执行策略层。系统会先判断这个动作属于哪一类：可以直接执行、必须审批，还是直接禁止。只有落到“需要审批”的动作，才会进入自动审批流程。
+如果配置是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>approvals_reviewer = "user"
+</code></pre></div></div>
+<p>那么需要二次确认的行为会弹给用户。
+如果配置是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>approvals_reviewer = "auto_review"
+</code></pre></div></div>
+<p>审批请求就不会直接交给用户，而是交给 guardian。
+在codex中，其实是有一个专门的codex审批模型，来配合这个审批模式。
+guardian 看到的也不是一句简单的“是否允许运行 rm xxx”，而是一份结构化的审批材料：当前任务上下文、用户原始意图、最近工具调用和结果、待执行动作的 JSON 描述，以及相关权限信息。它要判断的不是“这个命令看起来危不危险”，而是：</p>
+
+<blockquote>
+  <p>这个动作在当前任务语境下，是否真的被用户授权？</p>
+</blockquote>
+
+<p>因此，Codex 的自动审批本质上是一种<strong>上下文化授权判断</strong>。比如，用户说“帮我跑一下测试”，这通常可以授权构建、测试、写临时文件；但不代表授权删除未提交代码、上传整个工作区，或者修改持久安全配置。guardian 的任务就是判断待执行动作是否仍然落在用户授权范围内。</p>
+
+<p>源码里 guardian 的输出也不是简单的 allow/deny，而是结构化结论，例如 <code class="language-plaintext highlighter-rouge">risk_level</code>、<code class="language-plaintext highlighter-rouge">user_authorization</code>、<code class="language-plaintext highlighter-rouge">outcome</code> 和 <code class="language-plaintext highlighter-rouge">rationale</code>。也就是说，它会综合判断风险等级、用户授权强度，最后给出允许或拒绝。</p>
+
+<p>Codex 对 guardian 本身也做了限制。guardian 不是一个拥有更高权限的万能 Agent。它被设置为只读权限，并且 <code class="language-plaintext highlighter-rouge">approval_policy = Never</code>。这意味着 guardian 自己不能再申请提权，不能修改文件，也不能通过额外工具扩大行动面。主 Agent 负责执行任务，guardian 负责审查敏感动作，两者不是同一个执行主体。</p>
+
+<p><img src="/styles/images/agent-sandbox-research/file-20260707151057314.png" alt="Codex guardian 审批上下文" />
+这个设计本身是合理的，但它也带来一个重要问题：自动审批的效果高度依赖审查模型本身。如果你没有购买codex，而是使用其他模型api，那么在对应的审查模型就无法使用，需要自行替换。</p>
+
+<p>然而我在替换之后发现，非官方模型对于guardian的提示词理解如果有误会造成大量误判。</p>
+
+<p>同时在进行相关研究时，发现了一种攻击手法。</p>
+
+<p>首先刚刚提到过，在非“完全访问权限下”所有的动作执行，都是经过沙箱的。那么即使有一个恶意文件进来了，也是先经过沙箱，在沙箱内发现异常就会阻止或者请求审批。</p>
+
+<p>guardian在审批时，会注入一部分上下文，如果guardian在前面运行该文件时，认为他是一个正常的，后续再运行时，状态发生变化，正常文件变成了恶意文件，guardian被诱导信任该文件，直接通过审批。宿主机就会遭到攻击。我暂时将其命名为“自动审查模式下的延迟语义攻击”，直接提示词注入能通过这种方式绕过沙箱，但间接比较困难，因为目前模型对外部的信息信任度很低，需要多轮间接诱导才行。例如下面的攻击场景。</p>
+
+<h2 id="gpt间接注入案例">GPT间接注入案例</h2>
+<p>假如你正在使用gpt去做网站漏洞挖掘，网站存在一种人机验证，需要你下载他的二进制程序并执行获得签名，在这种场景下，模型可能会存在几种行为</p>
+<ol>
+  <li>先静态分析，分析得到一些字符串，提交后人机验证不通过，再执行</li>
+  <li>不静态分析，直接去运行
+在第一种情况下，可以故意将一些字符串不加混淆，让他认为程序不危险，把真正的恶意行为强混淆。最后提权执行就可以执行恶意命令。</li>
+</ol>
+
+<p>测试模型是gpt 5.5 中，测试最后是提权到沙箱外执行，但macos本身有安全策略所以执行失败。
+<img src="/styles/images/agent-sandbox-research/file-20260708102653432.png" alt="间接注入测试结果" /></p>
+
+<h1 id="cursor">Cursor</h1>
+<h2 id="沙箱保护-2">沙箱保护</h2>
+<p>cursor的整体实现和codex类似，本篇文章主要来看他的最新两个漏洞</p>
+
+<h2 id="cve-2026-50548">CVE-2026-50548</h2>
+<p>Cursor 沙箱的设计大概是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>agent 要运行一个命令
+  -&gt; Cursor 生成沙箱策略
+  -&gt; 策略允许命令写入“当前工作目录”
+  -&gt; 其他地方只读或禁止写
+  -&gt; 再启动命令
+</code></pre></div></div>
+<p>问题在于：<strong>“当前工作目录是谁决定的？”</strong>
+正常情况下应该是 Cursor 自己决定，例如：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>workspace = /Users/alice/project
+working_directory = /Users/alice/project
+</code></pre></div></div>
+<p>于是沙箱策略变成：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>允许写：/Users/alice/project
+允许写：/tmp
+</code></pre></div></div>
+<p>但漏洞逻辑类似这样：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>agent 调用 run_terminal_cmd 时可以传 working_directory
+Cursor 没有强制检查这个目录必须在 workspace 里
+Cursor 直接把 working_directory 加进“允许写”列表
+</code></pre></div></div>
+<p>于是被提示注入控制后，agent 可以让工具调用变成：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>run_terminal_cmd(
+  command = "some command",
+  working_directory = "/Applications/Cursor.app/Contents/Resources/app/resources/helpers"
+)
+</code></pre></div></div>
+<p>Cursor 看到后可能生成这样的沙箱策略：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>允许写：/Users/alice/project
+允许写：/tmp
+允许写：/Applications/Cursor.app/Contents/Resources/app/resources/helpers
+</code></pre></div></div>
+<p>然后</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>破坏/替换 sandbox helper 或写入启动脚本
+后续命令脱离沙箱执行
+本机用户权限下 RCE
+</code></pre></div></div>
+
+<h2 id="cve-2026-50549">CVE-2026-50549</h2>
+<p>假设你的项目目录是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/project
+</code></pre></div></div>
+<p>Cursor 允许 Agent 写这里：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/project/**
+</code></pre></div></div>
+<p>现在 workspace 里出现一个 symlink：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/project/out.txt  -&gt;  /Users/alice/outside-marker.txt
+</code></pre></div></div>
+<p>表面路径是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/project/out.txt
+</code></pre></div></div>
+<p>但真实目标是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/outside-marker.txt
+</code></pre></div></div>
+<p>在 workspace 外。
+所以安全写入前，Cursor 必须做一件事：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>realpath("/Users/alice/project/out.txt")
+</code></pre></div></div>
+<p>得到真实目标：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/outside-marker.txt
+</code></pre></div></div>
+<p>然后判断：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>真实目标是否在 /Users/alice/project 内？
+</code></pre></div></div>
+<p>如果不在，就拒绝。
+这就是 canonicalization：把路径里的 symlink、<code class="language-plaintext highlighter-rouge">..</code>、相对路径等全部解析成真实路径。</p>
+
+<h3 id="漏洞点">漏洞点</h3>
+<p>漏洞出在解析失败时
+正确逻辑应该是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>real = canonicalize(path)
+
+if canonicalize 失败:
+    拒绝写入
+
+if real 不在 workspace 内:
+    拒绝写入
+
+写入 real
+</code></pre></div></div>
+<p>旧版 Cursor 的问题类似这样：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>real = canonicalize(path)
+
+if canonicalize 失败:
+    real = path   # 这里错了
+
+if real 看起来在 workspace 内:
+    允许写入
+</code></pre></div></div>
+<p>也就是说：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/alice/project/out.txt
+</code></pre></div></div>
+<p>只要这个“表面路径”在 workspace 内，Cursor 就放行了。可是写文件时，操作系统仍然会跟随 symlink，最后写到 workspace 外部。
+<strong>为什么 canonicalize 会失败？</strong>
+常见原因有两个：</p>
+<ol>
+  <li>symlink 指向的目标文件还不存在。</li>
+  <li>路径中某个父目录不可读，程序无法解析真实路径。</li>
+</ol>
+
+<h1 id="靶场环境">靶场环境</h1>
+<p>目前两个CVE的靶场环境已上线<a href="https://github.com/qfzwysec/ai-vuln-lab"><code class="language-plaintext highlighter-rouge">ai-vuln-lab</code></a></p>
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>3 Frida - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783586459">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783586459">
+	<link rel="canonical" href="/2025/02/05/3-Frida/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="3 Frida, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>移动安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>移动安全</span>
+          
+          <time datetime="2025-02-05T15:40:00+08:00">2025.02.05</time>
+          
+            <span>Frida</span>
+          
+        </div>
+
+        <h1>3 Frida</h1>
+
+        
+          <p class="post-description">Frida 动态插桩基础、组件原理、Hook 方式与 Android 逆向分析中的常见使用场景。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <ul id="markdown-toc">
+  <li><a href="#1什么是frida" id="markdown-toc-1什么是frida">1.什么是Frida</a></li>
+  <li><a href="#2frida原理及重要组件" id="markdown-toc-2frida原理及重要组件">2.Frida原理及重要组件</a></li>
+  <li><a href="#3frida与xposed的对比" id="markdown-toc-3frida与xposed的对比">3.Frida与Xposed的对比</a></li>
+  <li><a href="#4frida环境配置" id="markdown-toc-4frida环境配置">4.Frida环境配置</a></li>
+  <li><a href="#5frida常用api" id="markdown-toc-5frida常用api">5.Frida常用Api</a>    <ul>
+      <li><a href="#hook普通方法打印参数和修改返回值" id="markdown-toc-hook普通方法打印参数和修改返回值">Hook普通方法，打印参数和修改返回值</a></li>
+      <li><a href="#hook重载函数" id="markdown-toc-hook重载函数">Hook重载函数</a></li>
+      <li><a href="#hook构造函数" id="markdown-toc-hook构造函数">Hook构造函数</a></li>
+      <li><a href="#hook字段" id="markdown-toc-hook字段">Hook字段</a></li>
+      <li><a href="#hook内部类" id="markdown-toc-hook内部类">Hook内部类</a></li>
+      <li><a href="#构造数组" id="markdown-toc-构造数组">构造数组</a></li>
+      <li><a href="#强制类型转换" id="markdown-toc-强制类型转换">强制类型转换</a></li>
+      <li><a href="#实现类" id="markdown-toc-实现类">实现类</a></li>
+      <li><a href="#枚举所有的类与类的所有方法" id="markdown-toc-枚举所有的类与类的所有方法">枚举所有的类与类的所有方法</a></li>
+      <li><a href="#枚举所有方法" id="markdown-toc-枚举所有方法">枚举所有方法</a></li>
+      <li><a href="#主动调用" id="markdown-toc-主动调用">主动调用</a></li>
+      <li><a href="#打印调用栈" id="markdown-toc-打印调用栈">打印调用栈</a></li>
+      <li><a href="#打印map" id="markdown-toc-打印map">打印map</a></li>
+      <li><a href="#生成字符串" id="markdown-toc-生成字符串">生成字符串</a></li>
+    </ul>
+  </li>
+  <li><a href="#6objection" id="markdown-toc-6objection">6.objection</a>    <ul>
+      <li><a href="#61-环境安装" id="markdown-toc-61-环境安装">6.1 环境安装</a></li>
+      <li><a href="#62-内存漫游" id="markdown-toc-62-内存漫游">6.2 内存漫游</a>        <ul>
+          <li><a href="#621-提取内存信息" id="markdown-toc-621-提取内存信息">6.2.1 提取内存信息</a></li>
+          <li><a href="#622-内存堆搜索与执行" id="markdown-toc-622-内存堆搜索与执行">6.2.2 内存堆搜索与执行</a></li>
+          <li><a href="#623-启动activity或service" id="markdown-toc-623-启动activity或service">6.2.3 启动activity或service</a></li>
+        </ul>
+      </li>
+      <li><a href="#63-hook" id="markdown-toc-63-hook">6.3 hook</a></li>
+      <li><a href="#64-wallbreaker" id="markdown-toc-64-wallbreaker">6.4 Wallbreaker</a></li>
+      <li><a href="#64-frida-dexdump" id="markdown-toc-64-frida-dexdump">6.4 FRIDA-DEXDump</a></li>
+      <li><a href="#64-zentrace" id="markdown-toc-64-zentrace">6.4 zentrace</a></li>
+      <li><a href="#65-r0trace" id="markdown-toc-65-r0trace">6.5 r0trace</a></li>
+    </ul>
+  </li>
+  <li><a href="#7frida-rpc" id="markdown-toc-7frida-rpc">7.frida-rpc</a>    <ul>
+      <li><a href="#71-远程调用" id="markdown-toc-71-远程调用">7.1 远程调用</a></li>
+      <li><a href="#72-多端混连" id="markdown-toc-72-多端混连">7.2 多端混连</a></li>
+      <li><a href="#73-动态修改" id="markdown-toc-73-动态修改">7.3 动态修改</a></li>
+    </ul>
+  </li>
+  <li><a href="#8综合案例" id="markdown-toc-8综合案例">8.综合案例</a>    <ul>
+      <li><a href="#81-登录" id="markdown-toc-81-登录">8.1 登录</a></li>
+      <li><a href="#82-第一关" id="markdown-toc-82-第一关">8.2 第一关</a></li>
+      <li><a href="#83-第二关" id="markdown-toc-83-第二关">8.3 第二关</a></li>
+      <li><a href="#84-第三关" id="markdown-toc-84-第三关">8.4 第三关</a></li>
+      <li><a href="#85-第四关" id="markdown-toc-85-第四关">8.5 第四关</a></li>
+      <li><a href="#86-第五关" id="markdown-toc-86-第五关">8.6 第五关</a></li>
+      <li><a href="#87-第六关" id="markdown-toc-87-第六关">8.7 第六关</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h1 id="1什么是frida">1.什么是Frida</h1>
+
+<p>Frida 是一款开源的动态插桩工具，可以插入一些代码到原生App的内存空间去动态地监视和修改其行为，支持Windows、Mac、Linux、Android或者iOS，从安卓层面来讲，可以实现<code class="language-plaintext highlighter-rouge">Java</code>层和<code class="language-plaintext highlighter-rouge">Native</code>层<code class="language-plaintext highlighter-rouge">Hook</code>操作。
+<a href="https://github.com/frida/frida">项目地址</a>
+<a href="https://frida.re/">官网及使用文档</a></p>
+
+<h1 id="2frida原理及重要组件">2.Frida原理及重要组件</h1>
+
+<p>rida注入的原理就是找到目标进程,使用ptrace跟踪目标进程获取mmap，dlpoen，dlsym等函数库的偏移获取mmap在目标进程申请一段内存空间将<strong>在目标进程中找到存放frida-agent-32/64.so的空间</strong>启动执行各种操作由agent去实现</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">组件名称</th>
+      <th style="text-align: left">功能描述</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">frida-gum</td>
+      <td style="text-align: left">提供了inline-hook的核心实现，还包含了代码跟踪模块Stalker，用于内存访问监控的MemoryAccessMonitor，以及符号查找、栈回溯实现、内存扫描、动态代码生成和重定位等功能</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">frida-core</td>
+      <td style="text-align: left">fridahook的核心，具有进程注入、进程间通信、会话管理、脚本生命周期管理等功能，屏蔽部分底层的实现细节并给最终用户提供开箱即用的操作接口。包含了frida-server、frida-gadget、frida-agent、frida-helper、frida-inject等关键模块和组件，以及之间的互相通信底座</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">frida-gadget</td>
+      <td style="text-align: left">本身是一个动态库，可以通过重打包修改动态库的依赖或者修改smali代码去实现向三方应用注入gadget，从而实现Frida的持久化或免root</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">frida-server</td>
+      <td style="text-align: left">本质上是一个二进制文件，类似于前面学习到的android_server，需要在目标设备上运行并转发端口，在Frida hook中起到关键作用</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>两种启动方式</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>方式名称</th>
+      <th>方式说明</th>
+      <th>CLI下启动方式</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>spawn</td>
+      <td>将启动APP的权利交由Frida来控制。不管APP是否启动，都会重新启动APP。</td>
+      <td><code class="language-plaintext highlighter-rouge">-f</code> 参数指定包名</td>
+    </tr>
+    <tr>
+      <td>attach</td>
+      <td>建立在目标APP已经启动的情况下，Frida通过 <code class="language-plaintext highlighter-rouge">ptrace</code> 注入程序从而执行Hook的操作</td>
+      <td>不加 <code class="language-plaintext highlighter-rouge">-f</code> 参数</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1 id="3frida与xposed的对比">3.Frida与Xposed的对比</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">工具</th>
+      <th style="text-align: left">优点</th>
+      <th style="text-align: left">缺点</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">Xposed</td>
+      <td style="text-align: left">直接编写Java代码，Java层hook方便，可打包模块持久化hook</td>
+      <td style="text-align: left">环境配置繁琐，兼容性较差，难以Hook底层代码。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Frida</td>
+      <td style="text-align: left">配置简单，免重启hook。支持Java层和Native层的hook操作</td>
+      <td style="text-align: left">持久化hook相对麻烦</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1 id="4frida环境配置">4.Frida环境配置</h1>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip install frida==16.3.1
+pip install frida-tools
+adb push 
+
+Frida 12.0.0到12.1.0 对应 Frida-tools 1.0.0到1.2.2
+
+Frida 12.3.0到12.4.0 对应 Frida-tools 1.3.0到1.3.2
+
+Frida 12.5.3到12.6.21 对应 Frida-tools 2.0.0到4.1.0
+
+Frida 12.7.3到12.8.12 对应 Frida-tools 5.0.1到7.2.2
+
+Frida 12.10.4到13.0.0 对应 Frida-tools 8.0.0到8.2.0
+
+Frida 14.0.0到15.0.0 对应 Frida-tools 9.0.0到9.2.5
+
+Frida 15.0.0到16.0.0 对应 Frida-tools 10.0.0到10.8.0
+
+Frida 16.0.0到17.0.0 对应 Frida-tools 12.0.0到12.3.0
+</code></pre></div></div>
+
+<h1 id="5frida常用api">5.Frida常用Api</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">API名称</th>
+      <th style="text-align: left">描述</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.use(className)</code></td>
+      <td style="text-align: left">获取指定的Java类并使其在JavaScript代码中可用。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.perform(callback)</code></td>
+      <td style="text-align: left">确保回调函数在Java的主线程上执行。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.choose(className, callbacks)</code></td>
+      <td style="text-align: left">枚举指定类的所有实例。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.cast(obj, cls)</code></td>
+      <td style="text-align: left">将一个Java对象转换成另一个Java类的实例。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.enumerateLoadedClasses(callbacks)</code></td>
+      <td style="text-align: left">枚举进程中已经加载的所有Java类。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.enumerateClassLoaders(callbacks)</code></td>
+      <td style="text-align: left">枚举进程中存在的所有Java类加载器。</td>
+    </tr>
+    <tr>
+      <td style="text-align: left"><code class="language-plaintext highlighter-rouge">Java.enumerateMethods(targetClassMethod)</code></td>
+      <td style="text-align: left">枚举指定类的所有方法。</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="hook普通方法打印参数和修改返回值">Hook普通方法，打印参数和修改返回值</h2>
+
+<p>hook这个a方法</p>
+
+<p><img src="/styles/images/3 Frida/image-20250114191829774-1738332896140-1.png" alt="image-20250114191829774" /></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest1</span><span class="p">(){</span>
+    <span class="kd">var</span> <span class="nx">utils</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">utils</span><span class="p">.</span><span class="nx">a</span><span class="p">.</span><span class="nf">overload</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.lang.String</span><span class="dl">"</span><span class="p">).</span><span class="nx">implementation</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">str</span><span class="p">){</span>
+        <span class="c1">// a = 123;</span>
+        <span class="c1">// b = 456;</span>
+        <span class="c1">//接收返回值</span>
+        <span class="kd">var</span> <span class="nx">retval</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">a</span><span class="p">(</span><span class="nx">str</span><span class="p">);</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">str</span><span class="p">,</span><span class="nx">retval</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nx">retval</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="nf">hookTest1</span><span class="p">()</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+<span class="nf">setImmediate</span><span class="p">(</span><span class="nx">main</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="hook重载函数">Hook重载函数</h2>
+
+<p>使用overload(“java.lang.String”)，指定参数类型</p>
+
+<p>涉及到复杂参数例如如下图</p>
+
+<p><img src="/styles/images/3 Frida/image-20250114192953046-1738332919368-3.png" alt="image-20250114192953046" /></p>
+
+<p>需要看对应的smali代码</p>
+
+<p><img src="/styles/images/3 Frida/image-20250114193139577-1738332933079-5.png" alt="image-20250114193139577" /></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">utils</span><span class="p">.</span><span class="nx">Inner</span><span class="p">.</span><span class="nf">overload</span><span class="p">(</span><span class="dl">'</span><span class="s1">com.zj.wuaipojie.Demo$Animal</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">java.lang.String</span><span class="dl">'</span><span class="p">).</span><span class="nx">implementation</span>
+</code></pre></div></div>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest1</span><span class="p">(){</span>
+    <span class="kd">var</span> <span class="nx">utils</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">utils</span><span class="p">.</span><span class="nx">Inner</span><span class="p">.</span><span class="nf">overload</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo$Animal</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">java.lang.String</span><span class="dl">"</span><span class="p">).</span><span class="nx">implementation</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">Animal</span><span class="p">,</span><span class="nx">str</span><span class="p">){</span>
+        <span class="c1">// a = 123;</span>
+        <span class="c1">// b = 456;</span>
+        <span class="c1">//接收返回值</span>
+        <span class="kd">var</span> <span class="nx">retval</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nc">Inner</span><span class="p">(</span><span class="nx">Animal</span><span class="p">,</span><span class="nx">str</span><span class="p">);</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">Animal</span><span class="p">,</span><span class="nx">str</span><span class="p">);</span>
+        <span class="c1">// return retval;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="nf">hookTest1</span><span class="p">()</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+<span class="nf">setImmediate</span><span class="p">(</span><span class="nx">main</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="hook构造函数">Hook构造函数</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest1</span><span class="p">(){</span>
+    <span class="kd">var</span> <span class="nx">utils</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">utils</span><span class="p">.</span><span class="nx">$init</span><span class="p">.</span><span class="nf">overload</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.lang.String</span><span class="dl">"</span><span class="p">).</span><span class="nx">implementation</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">str</span><span class="p">){</span>
+        <span class="nx">str</span><span class="o">=</span><span class="dl">'</span><span class="s1">hooked by frida</span><span class="dl">'</span>
+        <span class="kd">var</span> <span class="nx">retval</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">$init</span><span class="p">(</span><span class="nx">str</span><span class="p">);</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">str</span><span class="p">);</span>
+        <span class="c1">// return retval;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="nf">hookTest1</span><span class="p">()</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+<span class="nf">setImmediate</span><span class="p">(</span><span class="nx">main</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="hook字段">Hook字段</h2>
+
+<p>修改静态变量</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest1</span><span class="p">(){</span>
+    <span class="kd">var</span> <span class="nx">utils</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">utils</span><span class="p">.</span><span class="nx">staticField</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">我是被修改的静态变量</span><span class="dl">"</span><span class="p">;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">utils</span><span class="p">.</span><span class="nx">staticField</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+    
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>修改非静态变量</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest1</span><span class="p">(){</span>
+    <span class="kd">var</span> <span class="nx">utils</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">,{</span>
+        <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">obj</span><span class="p">)</span> <span class="p">{</span>
+            <span class="c1">// obj._privateInt.value = "123456"; //字段名与函数名相同 前面加个下划线</span>
+            <span class="nx">obj</span><span class="p">.</span><span class="nx">privateInt</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="mi">9999</span><span class="p">;</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">hookTest1 obj: </span><span class="dl">"</span><span class="p">,</span> <span class="nx">obj</span><span class="p">.</span><span class="nx">privateInt</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+        <span class="p">},</span>
+        <span class="na">onComplete</span><span class="p">:</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+
+        <span class="p">}</span>
+    <span class="p">})</span>
+
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="nf">hookTest1</span><span class="p">()</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+<span class="nf">setImmediate</span><span class="p">(</span><span class="nx">main</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="hook内部类">Hook内部类</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest6</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="c1">//内部类</span>
+        <span class="kd">var</span> <span class="nx">innerClass</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo$innerClass</span><span class="dl">"</span><span class="p">);</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">innerClass</span><span class="p">);</span>
+        <span class="nx">innerClass</span><span class="p">.</span><span class="nx">$init</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(){</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">eeeeeeee</span><span class="dl">"</span><span class="p">);</span>
+        <span class="p">}</span>
+
+    <span class="p">});</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+<h2 id="构造数组">构造数组</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Log.d("SimpleArraysToString", Arrays.toString(arr[i]));
+</code></pre></div></div>
+
+<p>替换整行</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>var charArray = Java.array('char',['一','二','三','四','五'])
+var result = this.toString(charArray);
+</code></pre></div></div>
+
+<h2 id="强制类型转换">强制类型转换</h2>
+
+<p>当前有两个类</p>
+
+<p>Water和Juice，Juice继承于Water</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Water</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="nc">String</span> <span class="nf">flow</span><span class="o">(</span><span class="nc">Water</span> <span class="no">W</span><span class="o">)</span> <span class="o">{</span> <span class="c1">// 水 的方法</span>
+        <span class="c1">// SomeSentence</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"2Object"</span><span class="o">,</span> <span class="s">"water flow: I`m flowing"</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"water flow: I`m flowing"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">still</span><span class="o">(</span><span class="nc">Water</span> <span class="no">W</span><span class="o">)</span> <span class="o">{</span> <span class="c1">// 水 的方法</span>
+        <span class="c1">// SomeSentence</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"2Object"</span><span class="o">,</span> <span class="s">"water still: still water runs deep!"</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"water still: still water runs deep!"</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">Juice</span> <span class="kd">extends</span> <span class="nc">Water</span> <span class="o">{</span> <span class="c1">// 果汁 类 继承了水类</span>
+
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">fillEnergy</span><span class="o">(){</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"2Object"</span><span class="o">,</span> <span class="s">"Juice: i`m fillingEnergy!"</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"Juice: i`m fillingEnergy!"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">()</span> <span class="o">{</span>
+
+        <span class="nc">Water</span> <span class="n">w1</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Water</span><span class="o">();</span>
+        <span class="n">flow</span><span class="o">(</span><span class="n">w1</span><span class="o">)</span> <span class="o">;</span> <span class="c1">//</span>
+
+        <span class="nc">Juice</span> <span class="no">J</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Juice</span><span class="o">();</span> <span class="c1">// 实例化果汁类对象</span>
+        <span class="n">flow</span><span class="o">(</span><span class="no">J</span><span class="o">)</span> <span class="o">;</span> <span class="c1">// 调用水的方法  向上转型 J → W</span>
+
+        <span class="nc">Water</span> <span class="n">w2</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Juice</span><span class="o">();</span>
+        <span class="o">((</span><span class="nc">Juice</span><span class="o">)</span> <span class="n">w2</span><span class="o">).</span><span class="na">fillEnergy</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>类型转换代码 <strong>子类可转父类</strong></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest</span><span class="p">(){</span>
+    <span class="kd">let</span> <span class="nx">juiceHandle</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.lesson5.Juice</span><span class="dl">"</span><span class="p">,{</span>
+        <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">instance:</span><span class="dl">"</span><span class="p">,</span><span class="nx">instance</span><span class="p">);</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">call fillEnergy </span><span class="dl">"</span><span class="p">,</span><span class="nx">instance</span><span class="p">.</span><span class="nf">fillEnergy</span><span class="p">());</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Juice still</span><span class="dl">"</span><span class="p">,</span><span class="nx">instance</span><span class="p">.</span><span class="nf">still</span><span class="p">(</span><span class="nx">instance</span><span class="p">))</span>
+             <span class="nx">juiceHandle</span> <span class="o">=</span>  <span class="nx">instance</span><span class="p">;</span>
+        <span class="p">},</span>
+        <span class="na">onComplete</span><span class="p">:</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">completed</span><span class="dl">"</span><span class="p">)</span>
+            <span class="nf">setTimeout</span><span class="p">(()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">juiceHandle</span> <span class="o">!==</span> <span class="kc">null</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="kd">let</span> <span class="nx">waterHandle</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">cast</span><span class="p">(</span><span class="nx">juiceHandle</span><span class="p">,</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.lesson5.Water</span><span class="dl">"</span><span class="p">));</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">call still</span><span class="dl">"</span><span class="p">,</span> <span class="nx">waterHandle</span><span class="p">.</span><span class="nf">still</span><span class="p">(</span><span class="nx">waterHandle</span><span class="p">));</span>
+                <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">No Juice instance found, skipping Java.cast</span><span class="dl">"</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">},</span> <span class="mi">100</span><span class="p">);</span> <span class="c1">// 等待 100ms</span>
+        <span class="p">},</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>核心</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">let</span> <span class="nx">waterHandle</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">cast</span><span class="p">(</span><span class="nx">juiceHandle</span><span class="p">,</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.lesson5.Water</span><span class="dl">"</span><span class="p">));</span>
+</code></pre></div></div>
+
+<h2 id="实现类">实现类</h2>
+
+<p>当前有如下类，继承Water，实现liquid接口</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Milk</span> <span class="kd">extends</span> <span class="nc">Water</span> <span class="kd">implements</span> <span class="n">liquid</span><span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">flow</span><span class="o">(</span><span class="kt">int</span> <span class="n">time</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">"flowing"</span><span class="o">+</span><span class="n">time</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>现在在js中实现一个Beer类</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest</span><span class="p">(){</span>
+    <span class="kd">const</span> <span class="nx">Water</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">'</span><span class="s1">com.example.lesson5.Water</span><span class="dl">'</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">liquid</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">'</span><span class="s1">com.example.lesson5.liquid</span><span class="dl">'</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">Beer</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">registerClass</span><span class="p">({</span>
+      <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">com.example.lesson5.Peer</span><span class="dl">'</span><span class="p">,</span>
+      <span class="na">superClass</span><span class="p">:</span><span class="nx">Water</span><span class="p">,</span>
+      <span class="na">implements</span><span class="p">:</span> <span class="p">[</span><span class="nx">liquid</span><span class="p">],</span>
+      <span class="na">methods</span><span class="p">:</span> <span class="p">{</span>
+          <span class="na">flow</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">time</span><span class="p">)</span> <span class="p">{</span>
+              <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span>  <span class="dl">"</span><span class="s2">Beer flowing</span><span class="dl">"</span><span class="o">+</span><span class="nx">time</span><span class="p">;</span>
+              <span class="k">return</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.lang.String</span><span class="dl">"</span><span class="p">).</span><span class="nf">$new</span><span class="p">(</span><span class="nx">result</span><span class="p">);</span>
+          <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">});</span>
+    <span class="kd">let</span> <span class="nx">BeerInstance</span> <span class="o">=</span> <span class="nx">Beer</span><span class="p">.</span><span class="nf">$new</span><span class="p">();</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">beer flow</span><span class="dl">"</span><span class="p">,</span> <span class="nx">BeerInstance</span><span class="p">.</span><span class="nf">flow</span><span class="p">(</span><span class="mi">3</span><span class="p">));</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">beer-water-still</span><span class="dl">"</span><span class="p">,</span><span class="nx">BeerInstance</span><span class="p">.</span><span class="nf">still</span><span class="p">(</span><span class="nx">BeerInstance</span><span class="p">))</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/3 Frida/image-20250201124436755.png" alt="image-20250201124436755" /></p>
+
+<h2 id="枚举所有的类与类的所有方法">枚举所有的类与类的所有方法</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest7</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="c1">//枚举所有的类与类的所有方法,异步枚举</span>
+        <span class="nx">Java</span><span class="p">.</span><span class="nf">enumerateLoadedClasses</span><span class="p">({</span>
+            <span class="na">onMatch</span><span class="p">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span><span class="nx">handle</span><span class="p">){</span>
+                    <span class="c1">//过滤类名</span>
+                <span class="k">if</span><span class="p">(</span><span class="nx">name</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">)</span> <span class="o">!=-</span><span class="mi">1</span><span class="p">){</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">name</span><span class="p">);</span>
+                    <span class="kd">var</span> <span class="nx">clazz</span> <span class="o">=</span><span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="nx">name</span><span class="p">);</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">clazz</span><span class="p">);</span>
+                    <span class="kd">var</span> <span class="nx">methods</span> <span class="o">=</span> <span class="nx">clazz</span><span class="p">.</span><span class="kd">class</span><span class="p">.</span><span class="nf">getDeclaredMethods</span><span class="p">();</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">methods</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="na">onComplete</span><span class="p">:</span> <span class="kd">function</span><span class="p">(){}</span>
+        <span class="p">})</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+<h2 id="枚举所有方法">枚举所有方法</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest8</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+        <span class="kd">var</span> <span class="nx">Demo</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span>
+        <span class="c1">//getDeclaredMethods枚举所有方法</span>
+        <span class="kd">var</span> <span class="nx">methods</span> <span class="o">=</span><span class="nx">Demo</span><span class="p">.</span><span class="kd">class</span><span class="p">.</span><span class="nf">getDeclaredMethods</span><span class="p">();</span>
+        <span class="k">for</span><span class="p">(</span><span class="kd">var</span> <span class="nx">j</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="nx">j</span> <span class="o">&lt;</span> <span class="nx">methods</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">j</span><span class="o">++</span><span class="p">){</span>
+            <span class="kd">var</span> <span class="nx">methodName</span> <span class="o">=</span> <span class="nx">methods</span><span class="p">[</span><span class="nx">j</span><span class="p">].</span><span class="nf">getName</span><span class="p">();</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">methodName</span><span class="p">);</span>
+            <span class="k">for</span><span class="p">(</span><span class="kd">var</span> <span class="nx">k</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="nx">k</span><span class="o">&lt;</span><span class="nx">Demo</span><span class="p">[</span><span class="nx">methodName</span><span class="p">].</span><span class="nx">overloads</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="nx">k</span><span class="o">++</span><span class="p">){</span>
+                <span class="nx">Demo</span><span class="p">[</span><span class="nx">methodName</span><span class="p">].</span><span class="nx">overloads</span><span class="p">[</span><span class="nx">k</span><span class="p">].</span><span class="nx">implementation</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(){</span>
+                    <span class="k">for</span><span class="p">(</span><span class="kd">var</span> <span class="nx">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="nx">i</span><span class="o">&lt;</span><span class="nx">arguments</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span><span class="nx">i</span><span class="o">++</span><span class="p">){</span>
+                        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">arguments</span><span class="p">[</span><span class="nx">i</span><span class="p">]);</span>
+                    <span class="p">}</span>
+                    <span class="k">return</span> <span class="k">this</span><span class="p">[</span><span class="nx">methodName</span><span class="p">].</span><span class="nf">apply</span><span class="p">(</span><span class="k">this</span><span class="p">,</span><span class="nx">arguments</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+<h2 id="主动调用">主动调用</h2>
+
+<p>静态方法</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">ClassName</span><span class="o">=</span><span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">);</span> 
+<span class="nx">ClassName</span><span class="p">.</span><span class="nf">privateFunc</span><span class="p">(</span><span class="dl">"</span><span class="s2">传参</span><span class="dl">"</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>非静态</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="kd">var</span> <span class="nx">ret</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.zj.wuaipojie.Demo</span><span class="dl">"</span><span class="p">,{</span>    <span class="c1">//要hook的类</span>
+            <span class="na">onMatch</span><span class="p">:</span><span class="kd">function</span><span class="p">(</span><span class="nx">instance</span><span class="p">){</span>
+                <span class="nx">ret</span><span class="o">=</span><span class="nx">instance</span><span class="p">.</span><span class="nf">privateFunc</span><span class="p">(</span><span class="dl">"</span><span class="s2">aaaaaaa</span><span class="dl">"</span><span class="p">);</span> <span class="c1">//要hook的方法</span>
+            <span class="p">},</span>
+            <span class="na">onComplete</span><span class="p">:</span><span class="kd">function</span><span class="p">(){</span>
+                    <span class="c1">//console.log("result: " + ret);</span>
+            <span class="p">}</span>
+        <span class="p">});</span>
+    <span class="p">})</span>
+    <span class="c1">//return ret;</span>
+
+</code></pre></div></div>
+
+<p>打印日志</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>adb shell
+logcat | grep "D.zj2595"
+</code></pre></div></div>
+
+<h2 id="打印调用栈">打印调用栈</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>console.log(Java.user("android.util.Log").getStackTraceString(Java.use("java.lang.Throwable").$new()));
+</code></pre></div></div>
+
+<h2 id="打印map">打印map</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nc">Map</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">String</span><span class="o">&gt;</span> <span class="n">mapr0ysue</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HashMap</span><span class="o">&lt;&gt;();</span> <span class="c1">// 创建Map集合对象</span>
+<span class="n">mapr0ysue</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="s">"ISBN 978-7-5677-8742-1"</span><span class="o">,</span> <span class="s">"Android项目开发实战入门"</span><span class="o">);</span> <span class="c1">// 向Map集合中添加元素</span>
+<span class="n">mapr0ysue</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="s">"ISBN 978-7-5677-8741-4"</span><span class="o">,</span> <span class="s">"C语言项目开发实战入门"</span><span class="o">);</span>
+<span class="n">mapr0ysue</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="s">"ISBN 978-7-5677-9097-1"</span><span class="o">,</span> <span class="s">"PHP项目开发实战入门"</span><span class="o">);</span>
+<span class="n">mapr0ysue</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="s">"ISBN 978-7-5677-8740-7"</span><span class="o">,</span> <span class="s">"Java项目开发实战入门"</span><span class="o">);</span>
+
+<span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"5map"</span><span class="o">,</span> <span class="s">"key值toString"</span><span class="o">+</span><span class="n">mapr0ysue</span><span class="o">.</span><span class="na">toString</span><span class="o">());</span>
+</code></pre></div></div>
+
+<p><strong>frida打印</strong></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.util.HashMap</span><span class="dl">"</span><span class="p">,{</span>
+        <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if </span><span class="p">(</span><span class="nx">instance</span><span class="p">.</span><span class="nf">toString</span><span class="p">().</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">ISBN</span><span class="dl">"</span><span class="p">)</span> <span class="o">!==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">found instance</span><span class="dl">"</span><span class="p">,</span> <span class="nx">instance</span><span class="p">);</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">hashMap result </span><span class="dl">"</span><span class="p">,</span> <span class="nx">instance</span><span class="p">.</span><span class="nf">toString</span><span class="p">());</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="na">onComplete</span><span class="p">:</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">completed</span><span class="dl">"</span><span class="p">);</span>
+        <span class="p">},</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>frida-Hook</strong></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest</span><span class="p">(){</span>
+
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.util.HashMap</span><span class="dl">"</span><span class="p">).</span><span class="nx">put</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">(</span><span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">);</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">x</span><span class="p">.</span><span class="nf">toString</span><span class="p">().</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">ISBN</span><span class="dl">"</span><span class="p">)</span><span class="o">!==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">x,y,result</span><span class="dl">"</span><span class="p">,</span> <span class="nx">x</span><span class="p">.</span><span class="nf">toString</span><span class="p">(),</span> <span class="nx">y</span><span class="p">.</span><span class="nf">toString</span><span class="p">(),</span> <span class="nx">result</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="nx">result</span><span class="p">;</span>
+
+    <span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/3 Frida/image-20250201131032596.png" alt="image-20250201131032596" /></p>
+
+<h2 id="生成字符串">生成字符串</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Java.use('java.lang.String').$new("NIHAO");
+</code></pre></div></div>
+
+<h1 id="6objection">6.objection</h1>
+
+<p>objection是基于frida的命令行hook集合工具, 可以让你不写代码, 敲几句命令就可以对java函数的高颗粒度hook, 还支持RPC调用。可以实现诸如内存搜索、类和模块搜索、方法hook打印参数返回值调用栈等常用功能，是一个非常方便的，逆向必备、内存漫游神器。</p>
+
+<h2 id="61-环境安装">6.1 环境安装</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip install frida==15.2.2
+pip install frida-tools==10.3.0
+pip3 install -U objection
+#启动frida，查找包名
+frida-ps -Uia
+#启动Objection
+objection -g &lt;包名&gt; explore
+
+● 指定IP端口
+objection -N -h &lt;手机ip地址&gt; -p &lt;端口&gt; -g &lt;包名&gt; explore
+
+● spawn 启动前 hook
+objection -N -h 192.168.1.3 -p 9999 -g 包名 explore --startup-command "android hooking watch class '包名.类名'"
+ 
+● spawn 启动前 Hook 并打印参数、返回值、函数调用栈
+objection -N -h 192.168.1.3 -p 9999 -g 包名 explore --startup-command "android hooking watch class_method '包名.类名.方法'  --dump-args --dump-return --dump-backtrace"
+</code></pre></div></div>
+
+<h2 id="62-内存漫游">6.2 内存漫游</h2>
+
+<p>hook：<code class="language-plaintext highlighter-rouge">objection -g com.android.settings explore</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127111327217.png" alt="image-20250127111327217" /></p>
+
+<h3 id="621-提取内存信息">6.2.1 提取内存信息</h3>
+
+<p><strong>查看内存中加载的库</strong>：<code class="language-plaintext highlighter-rouge">memory list modules</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127111841664.png" alt="image-20250127111841664" /></p>
+
+<p><strong>查看库的导出函数</strong>：<code class="language-plaintext highlighter-rouge">memory list exports libbase.so </code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127113323021.png" alt="image-20250127113323021" /></p>
+
+<p>保存结果到json，<code class="language-plaintext highlighter-rouge">memory list exports libbase.so --json ./libbase.json</code></p>
+
+<h3 id="622-内存堆搜索与执行">6.2.2 内存堆搜索与执行</h3>
+
+<p><strong>在堆上搜索实例</strong></p>
+
+<p>查看<a href="http://androidxref.com/9.0.0_r3/xref/packages/apps/Settings/src/com/android/settings/DisplaySettings.java"><code class="language-plaintext highlighter-rouge">AOSP</code>源码关于设置里显示系统设置的部分</a>，发现存在着<code class="language-plaintext highlighter-rouge">DisplaySettings</code>类。</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127114113699.png" alt="image-20250127114113699" /></p>
+
+<p><code class="language-plaintext highlighter-rouge">android heap search instances com.android.settings.DisplaySettings</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127114125290.png" alt="image-20250127114125290" /></p>
+
+<hr />
+
+<p><strong>调用实例方法</strong></p>
+
+<p>在<a href="http://androidxref.com/9.0.0_r3/xref/packages/apps/Settings/src/com/android/settings/DisplaySettings.java">DisplaySettings.java</a>中有如下方法</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127114543438.png" alt="image-20250127114543438" /></p>
+
+<p>调用该方法：<code class="language-plaintext highlighter-rouge">android heap execute 7019706 getMetricsCategory</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127114732958.png" alt="image-20250127114732958" /></p>
+
+<p><strong>在实例上执行<code class="language-plaintext highlighter-rouge">js</code>代码</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android heap evaluate 7019706</code>进入编辑器环境</p>
+
+<p>输入<code class="language-plaintext highlighter-rouge">console.log("evaluate result:"+clazz.getMetricsCategory())</code>，按<code class="language-plaintext highlighter-rouge">ESC</code>退出编辑器，然后按回车，即会开始执行这串脚本，输出结果</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127120548566.png" alt="image-20250127120548566" /></p>
+
+<h3 id="623-启动activity或service">6.2.3 启动activity或service</h3>
+
+<p><strong>直接启动activity</strong></p>
+
+<p>进入显示设置<code class="language-plaintext highlighter-rouge">android intent launch_activity com.android.settings.DisplaySettings</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127120830526.png" alt="image-20250127120830526" /></p>
+
+<p><strong>查看当前可用的<code class="language-plaintext highlighter-rouge">activity</code></strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android hooking list activities  </code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127120930974.png" alt="image-20250127120930974" /></p>
+
+<p><strong>直接启动service</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android hooking list services</code>查看可供开启的服务</p>
+
+<p><code class="language-plaintext highlighter-rouge">android intent launch_service com.android.settings.bluetooth.BluetoothPairingService</code>命令来开启服务</p>
+
+<h2 id="63-hook">6.3 hook</h2>
+
+<p><strong>hook类的所有方法</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android hooking watch class android.bluetooth.BluetoothDevice</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127121906986.png" alt="image-20250127121906986" /></p>
+
+<p>使用蓝牙功能会跟踪到调用的方法</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127122153132.png" alt="image-20250127122153132" /></p>
+
+<p><strong>hook方法的参数、返回值和调用栈</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android hooking watch class_method android.bluetooth.BluetoothDevice.getName --dump-args --dump-return --dump-backtrace</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127122746796.png" alt="image-20250127122746796" /></p>
+
+<p>最后加上的三个选项<code class="language-plaintext highlighter-rouge">--dump-args --dump-return --dump-backtrace</code>，为我们成功打印出来了我们想要看的信息，其实返回值<code class="language-plaintext highlighter-rouge">Return Value</code>就是<code class="language-plaintext highlighter-rouge">getName()</code>方法的返回值，我的蓝牙耳机的型号名字<code class="language-plaintext highlighter-rouge">OnePlus Bullets Wireless 2</code>；从调用栈可以反查如何一步一步调用到<code class="language-plaintext highlighter-rouge">getName()</code>这个方法的</p>
+
+<p><strong>hook 类的构造方法</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android hooking watch class_method com.android.settings.bluetooth.BluetoothPairingService.$init</code></p>
+
+<p><strong>hook 方法的所有重载</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">android hooking watch class_method 类名.方法名</code></p>
+
+<h2 id="64-wallbreaker">6.4 Wallbreaker</h2>
+
+<p><strong>安装和加载</strong></p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/hluwa/Wallbreaker
+#加载插件
+#方法1
+objection -g com.example.androiddemo explore  -P ~/.objection/plugins/Wallbreaker(插件路径)
+#方法2
+objection -g com.example.androiddemo explore
+plugin load ~/.objection/plugins/Wallbreaker(插件路径)
+windows注意路径:plugin load F:/Penetration/android/objection/Wallbreaker
+</code></pre></div></div>
+
+<p><strong>搜索类</strong></p>
+
+<p>` plugin wallbreaker classdump –fullname com.android.settings.bluetooth.BluetoothPairingService `</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127124531382.png" alt="image-20250127124531382" /></p>
+
+<h2 id="64-frida-dexdump">6.4 FRIDA-DEXDump</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/hluwa/frida-dexdump
+plugin load F:/Penetration/android/objection/frida-dexdump
+or
+pip3 install frida-dexdump
+</code></pre></div></div>
+
+<p>打开待脱壳的App</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127132504565.png" alt="image-20250127132504565" /></p>
+
+<p>获取包名<code class="language-plaintext highlighter-rouge">com.cz.babySister</code></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127132640816.png" alt="image-20250127132640816" /></p>
+
+<p>frida-dexdump -U -f com.cz.babySister</p>
+
+<p>合并dex</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
+<span class="kn">import</span> <span class="n">zipfile</span>
+<span class="kn">import</span> <span class="n">argparse</span>
+
+<span class="k">def</span> <span class="nf">rename_class</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="nf">listdir</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">dex_index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">path</span><span class="p">.</span><span class="nf">endswith</span><span class="p">(</span><span class="sh">'</span><span class="s">/</span><span class="sh">'</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="nf">print</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">files</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">files</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="nf">endswith</span><span class="p">(</span><span class="sh">'</span><span class="s">.dex</span><span class="sh">'</span><span class="p">):</span>
+            <span class="n">old_name</span> <span class="o">=</span> <span class="n">path</span> <span class="o">+</span> <span class="sh">'</span><span class="s">/</span><span class="sh">'</span> <span class="o">+</span> <span class="n">files</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">dex_index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">new_name</span> <span class="o">=</span> <span class="n">path</span> <span class="o">+</span> <span class="sh">'</span><span class="s">/</span><span class="sh">'</span> <span class="o">+</span> <span class="sh">'</span><span class="s">classes.dex</span><span class="sh">'</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_name</span> <span class="o">=</span> <span class="n">path</span> <span class="o">+</span> <span class="sh">'</span><span class="s">/</span><span class="sh">'</span> <span class="o">+</span> <span class="sh">'</span><span class="s">classes%d.dex</span><span class="sh">'</span> <span class="o">%</span> <span class="n">dex_index</span>
+            <span class="n">dex_index</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">exists</span><span class="p">(</span><span class="n">new_name</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">os</span><span class="p">.</span><span class="nf">rename</span><span class="p">(</span><span class="n">old_name</span><span class="p">,</span> <span class="n">new_name</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[*] 重命名完毕</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">extract_META_INF_from_apk</span><span class="p">(</span><span class="n">apk_path</span><span class="p">,</span> <span class="n">target_path</span><span class="p">):</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">zipfile</span><span class="p">.</span><span class="nf">is_zipfile</span><span class="p">(</span><span class="n">apk_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">r</span><span class="p">:</span>
+        <span class="n">fz</span> <span class="o">=</span> <span class="n">zipfile</span><span class="p">.</span><span class="nc">ZipFile</span><span class="p">(</span><span class="n">apk_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">)</span>
+        <span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">fz</span><span class="p">.</span><span class="nf">namelist</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">file</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">'</span><span class="s">META-INF</span><span class="sh">'</span><span class="p">):</span>
+                <span class="n">fz</span><span class="p">.</span><span class="nf">extract</span><span class="p">(</span><span class="nb">file</span><span class="p">,</span> <span class="n">target_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[-] %s 不是一个APK文件</span><span class="sh">'</span> <span class="o">%</span> <span class="n">apk_path</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">zip_dir</span><span class="p">(</span><span class="n">dirname</span><span class="p">,</span> <span class="n">zipfilename</span><span class="p">):</span>
+    <span class="n">filelist</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">isfile</span><span class="p">(</span><span class="n">dirname</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">dirname</span><span class="p">.</span><span class="nf">endswith</span><span class="p">(</span><span class="sh">'</span><span class="s">.dex</span><span class="sh">'</span><span class="p">):</span>
+            <span class="n">filelist</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">dirname</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">os</span><span class="p">.</span><span class="nf">walk</span><span class="p">(</span><span class="n">dirname</span><span class="p">):</span>
+            <span class="k">for</span> <span class="nb">dir</span> <span class="ow">in</span> <span class="n">dirs</span><span class="p">:</span>
+                <span class="c1"># if dir == 'META-INF':
+</span>                <span class="c1"># print('dir:', os.path.join(root, dir))
+</span>                <span class="n">filelist</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="nb">dir</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                <span class="c1"># print('file:', os.path.join(root, name))
+</span>
+                <span class="n">filelist</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+
+    <span class="n">z</span> <span class="o">=</span> <span class="n">zipfile</span><span class="p">.</span><span class="nc">ZipFile</span><span class="p">(</span><span class="n">zipfilename</span><span class="p">,</span> <span class="sh">'</span><span class="s">w</span><span class="sh">'</span><span class="p">,</span> <span class="n">zipfile</span><span class="p">.</span><span class="n">ZIP_DEFLATED</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tar</span> <span class="ow">in</span> <span class="n">filelist</span><span class="p">:</span>
+        <span class="n">arcname</span> <span class="o">=</span> <span class="n">tar</span><span class="p">[</span><span class="nf">len</span><span class="p">(</span><span class="n">dirname</span><span class="p">):]</span>
+
+        <span class="nf">if </span><span class="p">(</span><span class="sh">'</span><span class="s">META-INF</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">arcname</span> <span class="ow">or</span> <span class="n">arcname</span><span class="p">.</span><span class="nf">endswith</span><span class="p">(</span><span class="sh">'</span><span class="s">.dex</span><span class="sh">'</span><span class="p">))</span> <span class="ow">and</span> <span class="sh">'</span><span class="s">.DS_Store</span><span class="sh">'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">arcname</span><span class="p">:</span>
+            <span class="c1"># print(tar + " --&gt;rar: " + arcname)
+</span>            <span class="n">z</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">tar</span><span class="p">,</span> <span class="n">arcname</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[*] APK打包成功，你可以拖入APK进行分析啦！</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">z</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="sh">'</span><span class="s">__main__</span><span class="sh">'</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sh">'</span><span class="s">dex_path</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">脱壳后dex路径</span><span class="sh">'</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">apk_path</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">原始带壳apk路径</span><span class="sh">'</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">output</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">脱壳后apk路径</span><span class="sh">'</span>
+    <span class="p">}</span>
+
+    <span class="nf">rename_class</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="sh">'</span><span class="s">dex_path</span><span class="sh">'</span><span class="p">])</span>
+    <span class="nf">extract_META_INF_from_apk</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="sh">'</span><span class="s">apk_path</span><span class="sh">'</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="sh">'</span><span class="s">dex_path</span><span class="sh">'</span><span class="p">])</span>
+    <span class="nf">zip_dir</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="sh">'</span><span class="s">dex_path</span><span class="sh">'</span><span class="p">],</span> <span class="n">args</span><span class="p">[</span><span class="sh">'</span><span class="s">output</span><span class="sh">'</span><span class="p">])</span>
+
+</code></pre></div></div>
+
+<h2 id="64-zentrace">6.4 zentrace</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip install PyQt5
+git clone https://github.com/hluwa/ZenTracer
+cd ZenTracer
+python ZenTracer.py
+</code></pre></div></div>
+
+<p>action-&gt;Match RegEx，输入要跟踪的包名</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127141812327.png" alt="image-20250127141812327" /></p>
+
+<p><img src="/styles/images/3 Frida/image-20250127141839230.png" alt="image-20250127141839230" /></p>
+
+<p>点击start</p>
+
+<p><img src="/styles/images/3 Frida/image-20250127144008518.png" alt="image-20250127144008518" /></p>
+
+<h2 id="65-r0trace">6.5 r0trace</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>frida -U 大 -l r0tracer.js -o Log.txt
+</code></pre></div></div>
+
+<h1 id="7frida-rpc">7.frida-rpc</h1>
+
+<h2 id="71-远程调用">7.1 远程调用</h2>
+
+<p>已此安卓app为例</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.example.lees4</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">android.os.Bundle</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">com.google.android.material.snackbar.Snackbar</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">androidx.appcompat.app.AppCompatActivity</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">android.util.Log</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.view.View</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">androidx.navigation.NavController</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">androidx.navigation.Navigation</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">androidx.navigation.ui.AppBarConfiguration</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">androidx.navigation.ui.NavigationUI</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">com.example.lees4.databinding.ActivityMainBinding</span><span class="o">;</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">MainActivity</span> <span class="kd">extends</span> <span class="nc">AppCompatActivity</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="nc">String</span> <span class="n">total</span> <span class="o">=</span> <span class="s">"@@@@####@@@@"</span><span class="o">;</span>
+
+
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">);</span>
+        <span class="k">while</span><span class="o">(</span><span class="kc">true</span><span class="o">){</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="nc">Thread</span><span class="o">.</span><span class="na">sleep</span><span class="o">(</span><span class="mi">1000</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">InterruptedException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+            <span class="o">}</span>
+
+            <span class="kt">int</span> <span class="n">m</span> <span class="o">=</span> <span class="n">fun</span><span class="o">(</span><span class="mi">50</span><span class="o">,</span><span class="mi">80</span><span class="o">);</span>
+            <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"kanxue m = "</span><span class="o">,</span> <span class="nc">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">m</span><span class="o">));</span>
+            <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"kanxue tolowercase"</span><span class="o">,</span> <span class="n">fun</span><span class="o">(</span><span class="s">"LOWERCASEME!"</span><span class="o">));</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="nc">String</span> <span class="nf">fun</span><span class="o">(</span><span class="nc">String</span> <span class="n">x</span> <span class="o">){</span>
+        <span class="n">total</span> <span class="o">+=</span><span class="n">x</span> <span class="o">;</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="na">toLowerCase</span><span class="o">();</span>
+
+    <span class="o">}</span>
+
+    <span class="kt">int</span> <span class="nf">fun</span><span class="o">(</span><span class="kt">int</span> <span class="n">x</span> <span class="o">,</span><span class="kt">int</span> <span class="n">y</span><span class="o">){</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="s">"kanxue"</span><span class="o">,</span> <span class="nc">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">((</span><span class="n">x</span><span class="o">+</span><span class="n">y</span><span class="o">)));</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">+</span><span class="n">y</span><span class="o">;</span>
+    <span class="o">}</span>
+
+
+    <span class="nc">String</span> <span class="nf">secret</span><span class="o">(){</span>
+        <span class="k">return</span> <span class="n">total</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="nc">String</span> <span class="nf">secret2</span><span class="o">(){</span>
+        <span class="k">return</span> <span class="n">total</span><span class="o">;</span>
+    <span class="o">}</span>
+
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>hook.js</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">invoke</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="nf">function </span><span class="p">(){</span>
+        <span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.lees4.MainActivity</span><span class="dl">"</span><span class="p">,{</span>
+            <span class="na">onMatch</span><span class="p">:</span><span class="kd">function</span><span class="p">(</span><span class="nx">instance</span><span class="p">){</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">found instance </span><span class="dl">"</span><span class="p">,</span><span class="nx">instance</span><span class="p">);</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">invoke instance.secret </span><span class="dl">"</span><span class="p">,</span><span class="nx">instance</span><span class="p">.</span><span class="nf">secret</span><span class="p">());</span>
+            <span class="p">},</span><span class="na">onComplete</span><span class="p">:</span><span class="kd">function</span><span class="p">(){</span><span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">search completed !</span><span class="dl">"</span><span class="p">)}</span>
+        <span class="p">})</span>
+    <span class="p">})</span>
+
+
+<span class="p">}</span>
+<span class="nx">rpc</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">invokefunc</span><span class="p">:</span><span class="nx">invoke</span>
+<span class="p">};</span>
+
+</code></pre></div></div>
+
+<p>rpc.py</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 错误处理
+</span><span class="kn">import</span> <span class="n">frida</span>
+<span class="k">def</span> <span class="nf">my_message_handler</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">payload</span><span class="p">):</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+
+<span class="n">device</span> <span class="o">=</span> <span class="n">frida</span><span class="p">.</span><span class="nf">get_usb_device</span><span class="p">()</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">device</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="sh">"</span><span class="s">lees4</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">hook.js</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">script</span> <span class="o">=</span> <span class="n">session</span><span class="p">.</span><span class="nf">create_script</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">())</span>
+<span class="n">script</span><span class="p">.</span><span class="nf">on</span><span class="p">(</span><span class="sh">"</span><span class="s">message</span><span class="sh">"</span><span class="p">,</span> <span class="n">my_message_handler</span><span class="p">)</span>
+<span class="n">script</span><span class="p">.</span><span class="nf">load</span><span class="p">()</span>
+
+<span class="n">command</span> <span class="o">=</span> <span class="sh">"</span><span class="s"> </span><span class="sh">"</span>
+<span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="nf">input</span><span class="p">(</span><span class="sh">"</span><span class="s">input command:</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="sh">"</span><span class="s">2</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">script</span><span class="p">.</span><span class="n">exports_sync</span><span class="p">.</span><span class="nf">invokefunc</span><span class="p">()</span>
+
+</code></pre></div></div>
+
+<h2 id="72-多端混连">7.2 多端混连</h2>
+
+<p>以非标准端口启动fr</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./fr16 -l 0.0.0.0:6666
+</code></pre></div></div>
+
+<p>验证是否连接成功</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">device</span> <span class="o">=</span> <span class="n">frida</span><span class="p">.</span><span class="nf">get_device_manager</span><span class="p">().</span><span class="nf">add_remote_device</span><span class="p">(</span><span class="sh">'</span><span class="s">192.168.0.100:6666</span><span class="sh">'</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">device</span><span class="p">.</span><span class="nf">enumerate_applications</span><span class="p">())</span>
+</code></pre></div></div>
+
+<h2 id="73-动态修改">7.3 动态修改</h2>
+
+<p>示例app如下</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.example.myapplication</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">android.annotation.SuppressLint</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.os.Bundle</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.util.Base64</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.view.View</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.widget.EditText</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">android.widget.TextView</span><span class="o">;</span>
+
+<span class="kn">import</span> <span class="nn">androidx.activity.EdgeToEdge</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">androidx.appcompat.app.AppCompatActivity</span><span class="o">;</span>
+
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">MainActivity</span> <span class="kd">extends</span> <span class="nc">AppCompatActivity</span> <span class="o">{</span>
+    <span class="nc">EditText</span> <span class="n">username_et</span><span class="o">;</span>
+    <span class="nc">EditText</span> <span class="n">password_et</span><span class="o">;</span>
+    <span class="nc">TextView</span> <span class="n">message_tv</span><span class="o">;</span>
+    <span class="nd">@SuppressLint</span><span class="o">(</span><span class="s">"MissingInflatedId"</span><span class="o">)</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="nc">EdgeToEdge</span><span class="o">.</span><span class="na">enable</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">);</span>
+        <span class="n">password_et</span> <span class="o">=</span> <span class="o">(</span><span class="nc">EditText</span><span class="o">)</span> <span class="k">this</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">editText2</span><span class="o">);</span>
+        <span class="n">username_et</span> <span class="o">=</span> <span class="o">(</span><span class="nc">EditText</span><span class="o">)</span> <span class="k">this</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">editText</span><span class="o">);</span>
+        <span class="n">message_tv</span> <span class="o">=</span> <span class="o">((</span><span class="nc">TextView</span><span class="o">)</span> <span class="n">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">textView</span><span class="o">));</span>
+
+        <span class="k">this</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">button</span><span class="o">).</span><span class="na">setOnClickListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">View</span><span class="o">.</span><span class="na">OnClickListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClick</span><span class="o">(</span><span class="nc">View</span> <span class="n">v</span><span class="o">)</span> <span class="o">{</span>
+
+                <span class="k">if</span> <span class="o">(</span><span class="n">username_et</span><span class="o">.</span><span class="na">getText</span><span class="o">().</span><span class="na">toString</span><span class="o">().</span><span class="na">compareTo</span><span class="o">(</span><span class="s">"admin"</span><span class="o">)</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">message_tv</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="s">"You cannot login as admin"</span><span class="o">);</span>
+                    <span class="k">return</span><span class="o">;</span>
+                <span class="o">}</span>
+                <span class="c1">//hook target</span>
+                <span class="n">message_tv</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="s">"Sending to the server :"</span> <span class="o">+</span> <span class="nc">Base64</span><span class="o">.</span><span class="na">encodeToString</span><span class="o">((</span><span class="n">username_et</span><span class="o">.</span><span class="na">getText</span><span class="o">().</span><span class="na">toString</span><span class="o">()</span> <span class="o">+</span> <span class="s">":"</span> <span class="o">+</span> <span class="n">password_et</span><span class="o">.</span><span class="na">getText</span><span class="o">().</span><span class="na">toString</span><span class="o">()).</span><span class="na">getBytes</span><span class="o">(),</span> <span class="nc">Base64</span><span class="o">.</span><span class="na">DEFAULT</span><span class="o">));</span>
+
+            <span class="o">}</span>
+        <span class="o">});</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/3 Frida/image-20250205123152367.png" alt="image-20250205123152367" /></p>
+
+<p>目的是绕过代码中对admin的检查，将账号admin，以及对应密码发到server，需要hook的函数为setText</p>
+
+<p>首先要确定setText用的是哪个重载</p>
+
+<p><img src="/styles/images/3 Frida/image-20250205124327477.png" alt="image-20250205124327477" /></p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>android.widget.TextView.setText(java.lang.CharSequence)
+</code></pre></div></div>
+
+<p>进行hook</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="nx">Java</span><span class="p">.</span><span class="nf">perform</span><span class="p">(</span><span class="nf">function </span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">android.widget.TextView</span><span class="dl">"</span><span class="p">).</span><span class="nx">setText</span><span class="p">.</span><span class="nf">overload</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.lang.CharSequence</span><span class="dl">"</span><span class="p">).</span><span class="nx">implementation</span> <span class="o">=</span>
+        <span class="nf">function </span><span class="p">(</span><span class="nx">x</span><span class="p">){</span>
+            <span class="kd">let</span> <span class="nx">recv_msg</span> <span class="p">;</span>
+            <span class="kd">let</span> <span class="nx">send_msg</span> <span class="o">=</span>  <span class="nx">x</span><span class="p">.</span><span class="nf">toString</span><span class="p">();</span>
+            <span class="nf">send</span><span class="p">(</span><span class="nx">send_msg</span><span class="p">);</span>
+            <span class="nf">recv_msg</span><span class="p">(</span><span class="nf">function </span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
+                <span class="nx">recv_msg</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">res</span><span class="p">;</span>
+            <span class="p">}).</span><span class="nf">wait</span><span class="p">();</span>
+            <span class="kd">let</span> <span class="nx">Java_recv_msg</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">java.lang.String</span><span class="dl">"</span><span class="p">).</span><span class="nf">$new</span><span class="p">(</span><span class="nx">recv_msg</span><span class="p">);</span>
+            <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">setText</span><span class="p">(</span><span class="nx">Java_recv_msg</span><span class="p">);</span>
+            <span class="k">return</span> <span class="nx">result</span><span class="p">;</span>
+        <span class="p">}</span>
+<span class="p">})</span>
+
+</code></pre></div></div>
+
+<p>py</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 错误处理
+</span><span class="kn">import</span> <span class="n">base64</span>
+
+<span class="kn">import</span> <span class="n">frida</span>
+
+
+<span class="k">def</span> <span class="nf">my_message_handler</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">payload</span><span class="p">):</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">message</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">send</span><span class="sh">"</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="sh">"</span><span class="s">payload</span><span class="sh">"</span><span class="p">])</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="sh">"</span><span class="s">payload</span><span class="sh">"</span><span class="p">].</span><span class="nf">split</span><span class="p">(</span><span class="sh">"</span><span class="s">:</span><span class="sh">"</span><span class="p">)[</span><span class="mi">1</span><span class="p">].</span><span class="nf">strip</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">base64</span><span class="p">.</span><span class="nf">b64decode</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+        <span class="nf">print</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">usr</span><span class="p">,</span> <span class="n">pw</span> <span class="o">=</span> <span class="n">data</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">"</span><span class="s">:</span><span class="sh">"</span><span class="p">)</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">pw</span><span class="sh">'</span><span class="p">,</span> <span class="n">pw</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">base64</span><span class="p">.</span><span class="nf">b64encode</span><span class="p">((</span><span class="sh">"</span><span class="s">admin</span><span class="sh">"</span> <span class="o">+</span> <span class="sh">"</span><span class="s">:</span><span class="sh">"</span> <span class="o">+</span> <span class="n">pw</span><span class="p">).</span><span class="nf">encode</span><span class="p">()))</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">encode data</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">script</span><span class="p">.</span><span class="nf">post</span><span class="p">({</span><span class="sh">"</span><span class="s">res</span><span class="sh">"</span><span class="p">:</span> <span class="n">data</span><span class="p">})</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">modified send</span><span class="sh">"</span><span class="p">)</span>
+
+
+<span class="n">device</span> <span class="o">=</span> <span class="n">frida</span><span class="p">.</span><span class="nf">get_usb_device</span><span class="p">()</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">device</span><span class="p">.</span><span class="nf">attach</span><span class="p">(</span><span class="sh">"</span><span class="s">My Application</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">hook.js</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="c1"># 读取 JavaScript 脚本 lesson7sec.js
+</span>    <span class="n">script</span> <span class="o">=</span> <span class="n">session</span><span class="p">.</span><span class="nf">create_script</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">())</span>
+
+<span class="c1"># 注册 my_message_handler 作为消息处理函数，并加载 Frida 脚本。
+</span><span class="n">script</span><span class="p">.</span><span class="nf">on</span><span class="p">(</span><span class="sh">"</span><span class="s">message</span><span class="sh">"</span><span class="p">,</span> <span class="n">my_message_handler</span><span class="p">)</span>
+<span class="n">script</span><span class="p">.</span><span class="nf">load</span><span class="p">()</span>
+<span class="nf">input</span><span class="p">()</span>
+
+</code></pre></div></div>
+
+<h1 id="8综合案例">8.综合案例</h1>
+
+<p>拿到app，界面如下</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203211049110.png" alt="image-20250203211049110" /></p>
+
+<h2 id="81-登录">8.1 登录</h2>
+
+<p>问题很好解决，直接r0trace一把梭</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203214625548.png" alt="image-20250203214625548" /></p>
+
+<p>b5224c158c901c0d730ff02bf5ab721363099fcac5af372f6724790134cb6e25</p>
+
+<p>从静态代码分析也可以得知，a(obj,0bj)返回的结果和输入的密码一致才进入下一关，那么trace得到的返回值就是密码。</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203214653296.png" alt="image-20250203214653296" /></p>
+
+<h2 id="82-第一关">8.2 第一关</h2>
+
+<p>点击进入下一关会返回check failed</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203212254388.png" alt="image-20250203212254388" /></p>
+
+<p>trace调用栈如下</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203215221477.png" alt="image-20250203215221477" /></p>
+
+<p>这里的a方法返回值如下，如静态代码中的密钥不一致</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203215624986.png" alt="image-20250203215624986" /></p>
+
+<p><img src="/styles/images/3 Frida/image-20250203215648880.png" alt="image-20250203215648880" /></p>
+
+<p>所以hook该方法，修改返回值</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">let</span> <span class="nx">FridaActivity1</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.FridaActivity1</span><span class="dl">"</span><span class="p">);</span>
+<span class="nx">FridaActivity1</span><span class="p">[</span><span class="dl">"</span><span class="s2">a</span><span class="dl">"</span><span class="p">].</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">(</span><span class="nx">bArr</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`FridaActivity1.a is called: bArr=</span><span class="p">${</span><span class="nx">bArr</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">this</span><span class="p">[</span><span class="dl">"</span><span class="s2">a</span><span class="dl">"</span><span class="p">](</span><span class="nx">bArr</span><span class="p">);</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`FridaActivity1.a result=</span><span class="p">${</span><span class="nx">result</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="k">return</span> <span class="dl">"</span><span class="s2">R4jSLLLLLLLLLLOrLE7/5B+Z6fsl65yj6BgC6YWz66gO6g2t65Pk6a+P65NK44NNROl0wNOLLLL=</span><span class="dl">"</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/3 Frida/image-20250203220015263.png" alt="image-20250203220015263" /></p>
+
+<h2 id="83-第二关">8.3 第二关</h2>
+
+<p><img src="/styles/images/3 Frida/image-20250203222806324.png" alt="image-20250203222806324" /></p>
+
+<p>从代码得知，一开始static_bool_var和bool_var都是false,需要调用对应的set方法才可以</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">let</span> <span class="nx">FridaActivity2</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.FridaActivity2</span><span class="dl">"</span><span class="p">);</span>
+<span class="kd">let</span> <span class="nx">static_bool_var</span> <span class="o">=</span> <span class="nx">FridaActivity2</span><span class="p">.</span><span class="nx">static_bool_var</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`static_bool_var=</span><span class="p">${</span><span class="nx">static_bool_var</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+
+<span class="nx">FridaActivity2</span><span class="p">.</span><span class="nf">setStatic_bool_var</span><span class="p">();</span>
+<span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.FridaActivity2</span><span class="dl">"</span><span class="p">,{</span>
+    <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">let</span> <span class="nx">bool_var</span> <span class="o">=</span> <span class="nx">instance</span><span class="p">.</span><span class="nx">bool_var</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`bool_var=</span><span class="p">${</span><span class="nx">bool_var</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="nx">instance</span><span class="p">.</span><span class="nf">setBool_var</span><span class="p">();</span>
+    <span class="p">},</span>
+    <span class="na">onComplete</span><span class="p">:</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">completed</span><span class="dl">"</span><span class="p">)</span>
+    <span class="p">},</span>
+<span class="p">})</span>
+</code></pre></div></div>
+
+<p><img src="/styles/images/3 Frida/image-20250203223625844.png" alt="image-20250203223625844" /></p>
+
+<h2 id="84-第三关">8.4 第三关</h2>
+
+<p><img src="/styles/images/3 Frida/image-20250203223905949.png" alt="image-20250203223905949" /></p>
+
+<p>与上一关不同的是没有修改变量的方法，需要我们自己修改</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203224043154.png" alt="image-20250203224043154" /></p>
+
+<p><strong>如果变量名与函数同名需要加_</strong></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest3</span><span class="p">(){</span>
+    <span class="kd">let</span> <span class="nx">FridaActivity3</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.FridaActivity3</span><span class="dl">"</span><span class="p">);</span>
+    <span class="kd">let</span> <span class="nx">static_bool_var</span> <span class="o">=</span> <span class="nx">FridaActivity3</span><span class="p">.</span><span class="nx">static_bool_var</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`static_bool_var=</span><span class="p">${</span><span class="nx">static_bool_var</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="nx">FridaActivity3</span><span class="p">.</span><span class="nx">static_bool_var</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">choose</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.FridaActivity3</span><span class="dl">"</span><span class="p">,{</span>
+        <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`bool_var=</span><span class="p">${</span><span class="nx">instance</span><span class="p">.</span><span class="nx">bool_var</span><span class="p">.</span><span class="nx">value</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+            <span class="c1">// 如果变量名与函数同名需要加_</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`_same_name_bool_var=</span><span class="p">${</span><span class="nx">instance</span><span class="p">.</span><span class="nx">_same_name_bool_var</span><span class="p">.</span><span class="nx">value</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+            <span class="nx">instance</span><span class="p">.</span><span class="nx">bool_var</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+            <span class="nx">instance</span><span class="p">.</span><span class="nx">_same_name_bool_var</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="kc">true</span>
+        <span class="p">},</span>
+            <span class="na">onComplete</span><span class="p">:</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">completed</span><span class="dl">"</span><span class="p">)</span>
+        <span class="p">},</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="85-第四关">8.5 第四关</h2>
+
+<p><img src="/styles/images/3 Frida/image-20250203224859150.png" alt="image-20250203224859150" /></p>
+
+<p>从静态代码看需要Hook内部类</p>
+
+<p><img src="/styles/images/3 Frida/image-20250203224959277.png" alt="image-20250203224959277" /></p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest4</span><span class="p">(){</span>
+    <span class="kd">let</span> <span class="nx">InnerClasses</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.FridaActivity4$InnerClasses</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">InnerClasses</span><span class="p">.</span><span class="nx">check1</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="nx">InnerClasses</span><span class="p">.</span><span class="nx">check2</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="nx">InnerClasses</span><span class="p">.</span><span class="nx">check3</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="nx">InnerClasses</span><span class="p">.</span><span class="nx">check4</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="nx">InnerClasses</span><span class="p">.</span><span class="nx">check5</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+        <span class="nx">InnerClasses</span><span class="p">.</span><span class="nx">check6</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="86-第五关">8.6 第五关</h2>
+
+<p><img src="/styles/images/3 Frida/image-20250204111925609.png" alt="image-20250204111925609" /></p>
+
+<p>首先getDynamicDexCheck!=null，然后check()为true</p>
+
+<p>CheckInterface接口相关代码如下</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">CheckInterface</span> <span class="o">{</span>
+    <span class="kt">boolean</span> <span class="nf">check</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>实现</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">private</span> <span class="nc">CheckInterface</span> <span class="nc">DynamicDexCheck</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+<span class="kd">public</span> <span class="nc">CheckInterface</span> <span class="nf">getDynamicDexCheck</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="k">this</span><span class="o">.</span><span class="na">DynamicDexCheck</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+    	<span class="n">loaddex</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">.</span><span class="na">DynamicDexCheck</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>声明一个变量，调用getDynamicDexCheck进行实例化，首先使用loaddex()加载dex文件，如果文件不存在，则调用copyFiles，将写好的汇编代码放入文件中，然后利用反射获取实例。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">private</span> <span class="kt">void</span> <span class="nf">loaddex</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nc">File</span> <span class="n">filesDir</span> <span class="o">=</span> <span class="n">getFilesDir</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">filesDir</span><span class="o">.</span><span class="na">exists</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">filesDir</span><span class="o">.</span><span class="na">mkdir</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="nc">String</span> <span class="n">str</span> <span class="o">=</span> <span class="n">filesDir</span><span class="o">.</span><span class="na">getAbsolutePath</span><span class="o">()</span> <span class="o">+</span> <span class="nc">File</span><span class="o">.</span><span class="na">separator</span> <span class="o">+</span> <span class="s">"DynamicPlugin.dex"</span><span class="o">;</span>
+    <span class="nc">File</span> <span class="n">file</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">File</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">file</span><span class="o">.</span><span class="na">exists</span><span class="o">())</span> <span class="o">{</span>
+            <span class="n">file</span><span class="o">.</span><span class="na">createNewFile</span><span class="o">();</span>
+            <span class="n">copyFiles</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="s">"DynamicPlugin.dex"</span><span class="o">,</span> <span class="n">file</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">IOException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">DynamicDexCheck</span> <span class="o">=</span> <span class="o">(</span><span class="nc">CheckInterface</span><span class="o">)</span> <span class="k">new</span> <span class="nc">DexClassLoader</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">filesDir</span><span class="o">.</span><span class="na">getAbsolutePath</span><span class="o">(),</span> <span class="kc">null</span><span class="o">,</span> <span class="n">getClassLoader</span><span class="o">()).</span><span class="na">loadClass</span><span class="o">(</span><span class="s">"com.example.androiddemo.Dynamic.DynamicCheck"</span><span class="o">).</span><span class="na">newInstance</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(</span><span class="k">this</span><span class="o">.</span><span class="na">DynamicDexCheck</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="s">"loaddex Failed!"</span><span class="o">,</span> <span class="mi">1</span><span class="o">).</span><span class="na">show</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e2</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">e2</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>其加载的类如下</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">package</span> <span class="nn">com.example.androiddemo.Dynamic</span><span class="o">;</span>
+
+<span class="cm">/* loaded from: assets/DynamicPlugin.dex */</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">DynamicCheck</span> <span class="kd">implements</span> <span class="nc">CheckInterface</span> <span class="o">{</span>
+    <span class="nd">@Override</span> <span class="c1">// com.example.androiddemo.Dynamic.CheckInterface</span>
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">check</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>这里涉及一个<strong>接口多态</strong>的知识：<strong>接口本身不能直接实例化</strong>，但可以通过实现接口的类来创建对象，然后用接口类型的变量引用这个对象。在这段代码中使用接口多态而不是具体类，这样支持动态加载。</p>
+
+<hr />
+
+<p>那么这里通关的核心就是hook到动态加载的类的check方法，修改返回值为true</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hookTest5</span><span class="p">(){</span>
+    <span class="nx">Java</span><span class="p">.</span><span class="nf">enumerateClassLoaders</span><span class="p">({</span>
+        <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">loader</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">try</span> <span class="p">{</span>
+                <span class="c1">// noinspection JSConstantReassignment</span>
+                <span class="k">if </span><span class="p">(</span><span class="nx">loader</span><span class="p">.</span><span class="nf">findClass</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Dynamic.DynamicCheck</span><span class="dl">"</span><span class="p">))</span> <span class="p">{</span>
+                    <span class="nx">Java</span><span class="p">.</span><span class="nx">classFactory</span><span class="p">.</span><span class="nx">loader</span> <span class="o">=</span> <span class="nx">loader</span><span class="p">;</span>
+                    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">this loader</span><span class="dl">"</span><span class="p">,</span><span class="nx">loader</span><span class="p">)</span>
+                <span class="p">}</span>
+            <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">e</span><span class="p">){</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">e</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">},</span> <span class="na">onComplete</span><span class="p">:</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{},</span>
+    <span class="p">})</span>
+    <span class="kd">let</span> <span class="nx">app</span> <span class="o">=</span> <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Dynamic.DynamicCheck</span><span class="dl">"</span><span class="p">);</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">class</span><span class="dl">"</span><span class="p">,</span> <span class="nx">app</span><span class="p">);</span>
+        <span class="nx">app</span><span class="p">.</span><span class="nx">check</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">()</span> <span class="p">{</span>
+            <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">check</span><span class="p">();</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">result</span><span class="p">);</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+        <span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">Java.enumerateClassLoaders()</code> 用于遍历所有的类加载器，尝试找到能够加载 <code class="language-plaintext highlighter-rouge">com.example.androiddemo.Dynamic.DynamicCheck</code> 这个类的加载器。</li>
+  <li>对于每个加载器 <code class="language-plaintext highlighter-rouge">loader</code>，尝试使用 <code class="language-plaintext highlighter-rouge">loader.findClass("com.example.androiddemo.Dynamic.DynamicCheck")</code> 查找目标类。</li>
+  <li><strong>修改 Frida 的类加载器</strong>：<code class="language-plaintext highlighter-rouge">Java.classFactory.loader = loader</code>,使用这个 <code class="language-plaintext highlighter-rouge">loader</code> 来加载 Java 类，否则可能找不到目标类</li>
+</ul>
+
+<h2 id="87-第六关">8.7 第六关</h2>
+
+<p><img src="/styles/images/3 Frida/image-20250204121754113.png" alt="image-20250204121754113" /></p>
+
+<p><img src="/styles/images/3 Frida/image-20250204121806738.png" alt="image-20250204121806738" /></p>
+
+<p>这关很简单，Hook类直接调用静态方法即可</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">function</span> <span class="nf">hootTest6</span><span class="p">(){</span>
+    <span class="k">for </span><span class="p">(</span><span class="kd">let</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.Frida6.Frida6Class</span><span class="dl">"</span><span class="o">+</span><span class="nx">i</span><span class="p">).</span><span class="nx">check</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">(){</span><span class="k">return</span> <span class="kc">true</span><span class="p">};</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>但是还有一种方法，找已经加载好的类</p>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//方法二</span>
+<span class="nx">Java</span><span class="p">.</span><span class="nf">enumerateLoadedClasses</span><span class="p">({</span>
+    <span class="na">onMatch</span><span class="p">:</span> <span class="nf">function </span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">handle</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">name</span><span class="p">.</span><span class="nf">toString</span><span class="p">().</span><span class="nf">indexOf</span><span class="p">(</span><span class="dl">"</span><span class="s2">com.example.androiddemo.Activity.Frida6.Frida6</span><span class="dl">"</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">name</span><span class="dl">"</span><span class="p">,</span> <span class="nx">name</span><span class="p">);</span>
+            <span class="nx">Java</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="nx">name</span><span class="p">).</span><span class="nx">check</span><span class="p">.</span><span class="nx">implementation</span> <span class="o">=</span> <span class="nf">function </span><span class="p">(){</span><span class="k">return</span> <span class="kc">true</span><span class="p">};</span>
+        <span class="p">}</span>
+    <span class="p">},</span><span class="na">onComplete</span><span class="p">:</span><span class="nf">function </span><span class="p">(){</span><span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">completed</span><span class="dl">"</span><span class="p">)}</span>
+<span class="p">})</span>
+</code></pre></div></div>
+
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

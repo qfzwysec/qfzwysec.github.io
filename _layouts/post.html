@@ -1,29 +1,87 @@
 ---
 layout: default
 ---
-<div class="container docs-container">
-  <div class="row">
-    <div class="col-md-3">
-      <div class="sidebar hidden-print" role="complementary">
-        {% include lefttree.html %} 
-      </div>
-    </div>
-    <div class="col-md-9" role="main">
-      <div class="panel docs-content">
-        <div class="wrapper">
-            <header class="post-header">
-              <h1 class="post-title">{{ page.title }}</h1>
-              <!--
-                <p class="post-meta">{{ page.date | date: "%b %-d, %Y" }}{% if page.author %} • {{ page.author }}{% endif %}{% if page.meta %} • {{ page.meta }}{% endif %}</p>
-              -->
-              <div class="meta">Posted on <span class="postdate">{{ page.date | date: "%b %d, %Y" }}</span> By <a target="_blank" href="{{site.url}}">{{ site.author }}</a></div>
-              <br />
-            </header>
-            <article class="post-content">
-              {{ content }}
-            </article>
+
+<main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="{{ '/' | prepend: site.baseurl }}">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="{{ '/ai-security/' | prepend: site.baseurl }}">AI 安全</a>
+      <a href="{{ '/mobile-security/' | prepend: site.baseurl }}">移动安全</a>
+      <a href="{{ '/bmc-security/' | prepend: site.baseurl }}">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="{{ '/' | prepend: site.baseurl }}">安全研究</a>
+          {% if page.categories %}
+            <span>/</span>
+            <span>{{ page.categories }}</span>
+          {% endif %}
         </div>
-      </div>
-    </div>
+
+        <div class="post-meta-line">
+          {% if page.categories %}
+            <span>{{ page.categories }}</span>
+          {% endif %}
+          <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%Y.%m.%d" }}</time>
+          {% if page.tag %}
+            <span>{{ page.tag }}</span>
+          {% endif %}
+        </div>
+
+        <h1>{{ page.title }}</h1>
+
+        {% if page.description %}
+          <p class="post-description">{{ page.description }}</p>
+        {% endif %}
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        {{ content }}
+      </section>
+    </article>
   </div>
-</div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>

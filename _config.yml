@@ -8,12 +8,9 @@ github: https://github.com/qfzwysec/
 baseurl: ""
 description: 记录web攻防，移动安全，芯片安全学习心得!
 meta_description: 个人博客
-motto: Just do it.
-banner: 你有多少决心。
 
 #permalink: /:categories/:year/:month/:day/:title/
 permalink: /:year/:month/:day/:title/
-paginate: 10
 
 exclude: ['README.md', 'Gemfile.lock', 'Gemfile', 'Rakefile']
 
@@ -23,4 +20,3 @@ github_username: qfzwysec
 markdown: kramdown
 
 baidu_analysis: 94be4b0f9fc5d94cc0d0415ea6761ae9
-

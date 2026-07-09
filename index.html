@@ -1,147 +1,58 @@
 ---
 layout: default
+homepage_portal: true
+title: qfzwy's Security Notes
 ---
 
- <div class="container docs-container">
-      <div class="row">
-        <div class="col-md-3">
-          <div class="sidebar hidden-print" role="complementary">
-            <div id="navigation">
-              <h1>目录</h1>
-              <ul class="nav sidenav">
-                {% capture topping %}false{% endcapture %}
-                {% for post in site.posts  %}
-                  {% if post.topping %}
-                    {% capture topping %}{{post.topping}}{% endcapture %}
-                    {% break %}
-                  {% endif %}
-                {% endfor %}
-                {% if topping == 'true' %}
-                  <li><a href="#topping">置顶</a>
-                {% endif %}
+<main class="portal-page">
+  <header class="portal-nav">
+    <a class="portal-brand" href="{{ '/' | prepend: site.baseurl }}">安全研究</a>
+    <nav class="portal-tabs" aria-label="Security topics">
+      <a href="{{ '/ai-security/' | prepend: site.baseurl }}">AI 安全</a>
+      <a href="{{ '/mobile-security/' | prepend: site.baseurl }}">移动安全</a>
+      <a href="{{ '/bmc-security/' | prepend: site.baseurl }}">BMC 安全</a>
+    </nav>
+  </header>
 
-                {% for post in site.posts  %}
-                
-                  {% capture this_year %}{{ post.date | date: "%Y" }}{% endcapture %}
-                  {% capture this_month %}{{ post.date | date: "%B" }}{% endcapture %}
-                  {% capture next_year %}{{ post.previous.date | date: "%Y" }}{% endcapture %}
-                  {% capture next_month %}{{ post.previous.date | date: "%B" }}{% endcapture %}
-                  {% if forloop.first %}
-                    <li><a href="#year_{{this_year}}">{{this_year}}</a>
-                      <ul class="nav">
-                        <li><a href="#month_{{this_year}}_{{this_month}}">{{this_month}}</a></li>
-                  {% endif %}
-                  {% if forloop.last %}
-                        </ul>
-                      </li>
-                  {% else %}
-                    {% if this_year != next_year %}
-                        </ul>
-                      </li>
-                      <li><a href="#year_{{next_year}}">{{next_year}}</a>
-                        <ul class="nav">
-                          <li><a href="#month_{{next_year}}_{{next_month}}">{{next_month}}</a></li>
-                    {% else %}    
-                      {% if this_month != next_month %}
-                          <li><a href="#month_{{next_year}}_{{next_month}}">{{next_month}}</a></li>
-                      {% endif %}
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-              </ul>
-              <div style="height: 200px;width: 200px;">
-                
-                <script type="text/javascript" src="//rf.revolvermaps.com/0/0/8.js?i={{ site.revolvermaps }}&amp;m=0&amp;c=ff0000&amp;cr1=ffffff&amp;f=arial&amp;l=33" async="async"> 
-                </script>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-9" role="main">
-          <div class="panel docs-content">
-            <div class="wrapper">
-              <div class="home">
-                {% capture topping %}false{% endcapture %}
-                {% for post in site.posts  %}
-                  {% if post.topping %}
-                    {% capture topping %}{{post.topping}}{% endcapture %}
-                    {% break %}
-                  {% endif %}
-                {% endfor %}
-              
-                {% if topping == 'true' %}
-                <h2 class="topping">
-                  置顶文章
-                  <span class="anchor-target" id="topping"></span>
-                  <a href="#topping" name="topping" class="anchor glyphicon glyphicon-link"></a>
-                </h2>
-                <ul>
-                  {% for post in site.posts  %}
-                    {% if post.topping %}
-                      <ol class="breadcrumb">
-                        <li><span>{{ post.date | date: "%B %e, %Y" }}</span> &raquo; <a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a></li>
-                      </ol>
-                    {% endif %}
-                  {% endfor %}
-                </ul>
-                {% endif %}
-
-                {% for post in site.posts  %}
-
-                  {% capture this_year %}{{ post.date | date: "%Y" }}{% endcapture %}
-                  {% capture this_month %}{{ post.date | date: "%B" }}{% endcapture %}
-                  {% capture next_year %}{{ post.previous.date | date: "%Y" }}{% endcapture %}
-                  {% capture next_month %}{{ post.previous.date | date: "%B" }}{% endcapture %}
-
-                  {% if forloop.first %}
-                    <h1>
-                      {{this_year}}
-                      <span class="anchor-target" id="year_{{this_year}}"></span>
-                      <a href="#year_{{this_year}}" name="year_{{this_year}}" class="anchor glyphicon glyphicon-link"></a>
-                    </h1>
-                    <h2>
-                      {{this_month}}
-                      <span class="anchor-target" id="month_{{this_year}}_{{this_month}}"></span>
-                      <a href="#month_{{this_year}}_{{this_month}}" name="month_{{this_year}}_{{this_month}}" class="anchor glyphicon glyphicon-link"></a>
-                    </h2>
-                    <ul>
-                  {% endif %}
-
-                  <ol class="breadcrumb">
-                   <li><span>{{ post.date | date: "%B %e, %Y" }}</span> &raquo; <a href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a></li>
-                  </ol>
-                  {% if forloop.last %}
-                    </ul>
-                  {% else %}
-                    {% if this_year != next_year %}
-                      </ul>
-                      <h1>
-                        {{next_year}}
-                        <span class="anchor-target" id="year_{{next_year}}"></span>
-                        <a href="#year_{{next_year}}" name="year_{{next_year}}" class="anchor glyphicon glyphicon-link"></a>
-                      </h1>
-                      <h2>
-                        {{next_month}}
-                        <span class="anchor-target" id="month_{{next_year}}_{{next_month}}"></span>
-                        <a href="#month_{{next_year}}_{{next_month}}" name="month_{{next_year}}_{{next_month}}" class="anchor glyphicon glyphicon-link"></a>
-                      </h2>
-                      <ul>
-                    {% else %}    
-                      {% if this_month != next_month %}
-                        </ul>
-                        <h2>
-                          {{next_month}}
-                          <span class="anchor-target" id="month_{{next_year}}_{{next_month}}"></span>
-                          <a href="#month_{{next_year}}_{{next_month}}" name="month_{{next_year}}_{{next_month}}" class="anchor glyphicon glyphicon-link"></a>
-                        </h2>
-                        <ul>
-                      {% endif %}
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+  <section class="profile-hero">
+    <img class="profile-avatar" src="{{ '/styles/images/logo.jpg' | prepend: site.baseurl }}" alt="qfzwy">
+    <h1>qfzwy</h1>
+    <p>
+      专注 AI 安全、移动安全与 BMC/固件安全。这里整理高质量文章、实验复盘、
+      逆向分析和安全研究笔记，把零散探索沉淀成可复用的知识资产。
+    </p>
+    <div class="profile-tags">
+      <span>AI Security</span>
+      <span>Mobile Reverse</span>
+      <span>BMC Firmware</span>
+      <span>Security Research</span>
     </div>
+  </section>
+
+  <section class="article-section" id="articles">
+    <div class="section-heading">
+      <p>Latest notes</p>
+      <h2>最新文章</h2>
+    </div>
+    <div class="article-list">
+      {% for post in site.posts %}
+        {% assign category_text = post.categories | join: ' / ' %}
+        {% if category_text == '' %}
+          {% assign category_text = '安全研究' %}
+        {% endif %}
+        {% assign topic_key = 'other' %}
+        {% assign category_compact = post.categories | join: ',' %}
+        {% assign path_text = post.path %}
+        {% assign tag_text = post.tags | join: ',' %}
+        {% if category_compact contains 'AI安全' or category_compact contains '模型安全' or tag_text contains 'AI' or post.title contains 'AI' %}
+          {% assign topic_key = 'ai' %}
+        {% elsif category_compact contains '移动安全' or path_text contains 'android' %}
+          {% assign topic_key = 'mobile' %}
+        {% elsif category_compact contains 'BMC安全' or category_compact contains '芯片安全' or path_text contains 'chipsec' %}
+          {% assign topic_key = 'bmc' %}
+        {% endif %}
+        {% include article_card.html post=post fallback_image='/styles/images/favicon.jpg' topic=category_text topic_key=topic_key %}
+      {% endfor %}
+    </div>
+  </section>
+</main>

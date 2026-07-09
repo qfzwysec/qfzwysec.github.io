@@ -1,0 +1,20 @@
+{% assign article = include.post %}
+{% assign cover = article.cover | default: include.fallback_image %}
+{% assign description = article.description | default: article.excerpt %}
+
+<article class="article-card" data-topic="{{ include.topic_key | default: 'other' }}">
+  <a class="article-cover" href="{{ article.url | prepend: site.baseurl }}" aria-label="{{ article.title }}">
+    <img src="{{ cover | prepend: site.baseurl }}" alt="{{ article.title }}">
+  </a>
+  <div class="article-body">
+    <div class="article-meta">
+      <span>{{ include.topic }}</span>
+      <time datetime="{{ article.date | date_to_xmlschema }}">{{ article.date | date: "%Y.%m.%d" }}</time>
+    </div>
+    <h3>
+      <a href="{{ article.url | prepend: site.baseurl }}">{{ article.title }}</a>
+    </h3>
+    <p>{{ description | strip_html | strip_newlines | truncate: 128 }}</p>
+    <a class="article-link" href="{{ article.url | prepend: site.baseurl }}">阅读全文</a>
+  </div>
+</article>

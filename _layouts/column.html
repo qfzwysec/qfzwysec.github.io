@@ -1,0 +1,50 @@
+---
+layout: default
+---
+
+<main class="portal-page">
+  <header class="portal-nav">
+    <a class="portal-brand" href="{{ '/' | prepend: site.baseurl }}">安全研究</a>
+    <nav class="portal-tabs" aria-label="Security topics">
+      <a href="{{ '/ai-security/' | prepend: site.baseurl }}" {% if page.topic_key == 'ai' %}class="is-active"{% endif %}>AI 安全</a>
+      <a href="{{ '/mobile-security/' | prepend: site.baseurl }}" {% if page.topic_key == 'mobile' %}class="is-active"{% endif %}>移动安全</a>
+      <a href="{{ '/bmc-security/' | prepend: site.baseurl }}" {% if page.topic_key == 'bmc' %}class="is-active"{% endif %}>BMC 安全</a>
+    </nav>
+  </header>
+
+  <section class="column-hero">
+    <p>{{ page.eyebrow }}</p>
+    <h1>{{ page.title }}</h1>
+    <span>{{ page.description }}</span>
+  </section>
+
+  <section class="article-section">
+    <div class="section-heading">
+      <p>{{ page.eyebrow }}</p>
+      <h2>{{ page.title }}</h2>
+    </div>
+    <div class="article-list">
+      {% for post in site.posts %}
+        {% assign topic_key = 'other' %}
+        {% assign category_compact = post.categories | join: ',' %}
+        {% assign path_text = post.path %}
+        {% assign tag_text = post.tags | join: ',' %}
+        {% if category_compact contains 'AI安全' or category_compact contains '模型安全' or tag_text contains 'AI' or post.title contains 'AI' %}
+          {% assign topic_key = 'ai' %}
+        {% elsif category_compact contains '移动安全' or path_text contains 'android' %}
+          {% assign topic_key = 'mobile' %}
+        {% elsif category_compact contains 'BMC安全' or category_compact contains '芯片安全' or path_text contains 'chipsec' %}
+          {% assign topic_key = 'bmc' %}
+        {% endif %}
+
+        {% if topic_key == page.topic_key %}
+          {% assign category_text = post.categories | join: ' / ' %}
+          {% if category_text == '' %}
+            {% assign category_text = page.title %}
+          {% endif %}
+          {% include article_card.html post=post fallback_image='/styles/images/favicon.jpg' topic=category_text topic_key=topic_key %}
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+</main>

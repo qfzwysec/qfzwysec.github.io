@@ -5,6 +5,7 @@ date: 2026-07-11 00:00:00 +0800
 categories: AI安全
 tag: OWASP LLM
 description: 围绕 OWASP LLM 无界资源消耗，梳理推理成本放大、Agent 工具链资源滥用，以及 RAG 检索与数据处理扩张攻击。
+cover: /styles/images/owasp-unbounded-consumption/cover.png
 ---
 
 

@@ -12,9 +12,9 @@
 	
 	
 	
-	<link rel="stylesheet" href="/styles/css/post.css?v=1783741324">
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783741695">
 	
-	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783741324">
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783741695">
 	<link rel="canonical" href="/2026/07/11/Unbounded-Consumption-%E6%97%A0%E7%95%8C%E8%B5%84%E6%BA%90%E6%B6%88%E8%80%97/">
 	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
 	
@@ -399,7 +399,7 @@ RAGFlow 继续写入约 1,800 个 chunks
     if (!content || !outline || !list) return;
 
     var headings = Array.prototype.slice.call(
-      content.querySelectorAll("h1, h2, h3")
+      content.querySelectorAll("h1, h2, h3, h4, h5")
     ).filter(function (heading) {
       return heading.textContent.trim().length > 0;
     });

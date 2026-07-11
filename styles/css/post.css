@@ -273,6 +273,18 @@ body.index {
   color: var(--muted);
 }
 
+#post-outline-list .outline-h4 {
+  padding-left: 30px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#post-outline-list .outline-h5 {
+  padding-left: 40px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .post-content > *:first-child {
   margin-top: 0;
 }

@@ -12,9 +12,9 @@
 	
 	
 	
-	<link rel="stylesheet" href="/styles/css/post.css?v=1783741324">
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783741695">
 	
-	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783741324">
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783741695">
 	<link rel="canonical" href="/2026/07/09/%E6%A1%8C%E9%9D%A2%E6%99%BA%E8%83%BD%E4%BD%93%E6%B2%99%E7%AE%B1%E7%A0%94%E7%A9%B6/">
 	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
 	
@@ -298,7 +298,7 @@ if real 看起来在 workspace 内:
     if (!content || !outline || !list) return;
 
     var headings = Array.prototype.slice.call(
-      content.querySelectorAll("h1, h2, h3")
+      content.querySelectorAll("h1, h2, h3, h4, h5")
     ).filter(function (heading) {
       return heading.textContent.trim().length > 0;
     });

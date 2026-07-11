@@ -63,7 +63,7 @@ layout: default
     if (!content || !outline || !list) return;
 
     var headings = Array.prototype.slice.call(
-      content.querySelectorAll("h1, h2, h3")
+      content.querySelectorAll("h1, h2, h3, h4, h5")
     ).filter(function (heading) {
       return heading.textContent.trim().length > 0;
     });

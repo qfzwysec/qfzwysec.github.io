@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Unbounded Consumption 无界资源消耗 - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783741324">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783741324">
+	<link rel="canonical" href="/2026/07/11/Unbounded-Consumption-%E6%97%A0%E7%95%8C%E8%B5%84%E6%BA%90%E6%B6%88%E8%80%97/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="Unbounded Consumption 无界资源消耗, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>AI安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>AI安全</span>
+          
+          <time datetime="2026-07-11T00:00:00+08:00">2026.07.11</time>
+          
+            <span>OWASP LLM</span>
+          
+        </div>
+
+        <h1>Unbounded Consumption 无界资源消耗</h1>
+
+        
+          <p class="post-description">围绕 OWASP LLM 无界资源消耗，梳理推理成本放大、Agent 工具链资源滥用，以及 RAG 检索与数据处理扩张攻击。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <h1 id="推理成本放大攻击">推理成本放大攻击</h1>
+
+<p>与web中的DOS漏洞不同，LLM中的无界资源消耗主要是攻击者通过超长输入、递归 agent、昂贵工具调用等消耗 token、算力、API 额度或触发 DoS。</p>
+<h2 id="攻击定义">攻击定义</h2>
+<p>攻击者构造短输入或看似正常的自然语言输入，诱导 LLM / reasoning model 产生异常长的输出、重复生成、非终止生成或过长 reasoning trace，
+从而放大 decode 阶段计算成本、延迟、token 成本和服务排队压力。
+核心就是低成本输入 -&gt; 高成本生成</p>
+
+<h2 id="攻击分类">攻击分类</h2>
+<p>| 类别         | 包含                 | 核心区别                           |
+| ———- | —————— | —————————— |
+| <strong>长输出诱导</strong>  | 生成长输出              | 模型正常地一直写很多内容，不一定循环             |
+| <strong>长推理诱导</strong>  | reasoning trace 膨胀 | 最终输出未必长，但内部 reasoning token 很长 |</p>
+
+<h3 id="长输出诱导">长输出诱导</h3>
+
+<p>模型没有“坏掉”，也没有进入死循环，只是被诱导写很长。但是目前都是用token来限制请求，所以这种攻击只能针对内部使用的智能体，若某个用户账户被控制，一直发送恶意prompt，那么正常用户的延迟明显升高，服务吞吐量会下降。</p>
+
+<h4 id="engorgio">Engorgio</h4>
+
+<p>LLM 生成文本时一般有两个停止条件：</p>
+<ol>
+  <li>生成到 max_output_tokens</li>
+  <li>生成 <code class="language-plaintext highlighter-rouge">&lt;EOS&gt;</code> / end-of-sequence token</li>
+</ol>
+
+<p>Engorgio 的目标就是：降低模型生成<code class="language-plaintext highlighter-rouge">&lt;EOS&gt;</code>的概率</p>
+<ul>
+  <li>模型迟迟不停止</li>
+  <li>输出越来越长</li>
+  <li>直到 max length 截断</li>
+</ul>
+
+<p>所以攻击方式就是：长输出诱导+EOS抑制</p>
+
+<p>文章主要通过白盒的方式来逐步得到目标prompt。
+1.<code class="language-plaintext highlighter-rouge">&lt;EOS&gt;</code> escape loss：降低 <code class="language-plaintext highlighter-rouge">&lt;EOS&gt;</code>出现 概率</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>要让 模型在每一个生成位置预测 `&lt;EOS&gt;` 的概率更低。
+</code></pre></div></div>
+<p>但如果只压 <code class="language-plaintext highlighter-rouge">&lt;EOS&gt;</code>，可能得到一串很怪的 token。模型虽然不想停，但后续生成不稳定，可能很快跑偏、采样到结束，或者生成效果不可控。</p>
+
+<p>2.self-mentor loss：让这段 prompt 后面容易继续生成
+简单来说就是，利用模型自己的 next-token 概率，把 prompt 优化到模型自身喜欢延续的轨道上。</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>self-mentor loss ≈ 让模型对这段候选序列的 next-token prediction loss 更低
+</code></pre></div></div>
+
+<h4 id="thinktrap">ThinkTrap</h4>
+<p>它提出了一种针对 <strong>黑盒 LLM 服务</strong> 的 DoS 攻击方法。攻击者不需要模型参数、梯度或 logits，只需要能调用 API，并观察模型输出有多长。
+核心方法是把攻击 prompt 的搜索过程做成类似 fuzz/黑盒优化：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>生成候选 prompt
+-&gt; 查询目标 LLM
+-&gt; 用输出 token 数作为反馈
+-&gt; 保留能诱导更长输出的方向
+-&gt; 继续优化
+</code></pre></div></div>
+<p>比如</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>prompt A -&gt; 200 tokens
+prompt B -&gt; 3500 tokens
+prompt C -&gt; 800 tokens
+</code></pre></div></div>
+<p>算法会认为：B 的方向更有希望，下一轮就在 B 附近继续变异。
+最终得到一批短 prompt，可以让模型生成异常长的回答，甚至进入类似“无限思考”的状态。</p>
+
+<h3 id="长推理诱导">长推理诱导</h3>
+<p>长推理诱导消耗的是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>内部 reasoning token / hidden chain-of-thought budget
+</code></pre></div></div>
+<p>也就是说，用户最后看到的答案可能很短：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>答案：42
+</code></pre></div></div>
+<p>但模型内部可能已经生成了大量 reasoning trace。</p>
+
+<h4 id="reasoningbomb">ReasoningBomb</h4>
+
+<p>论文主要是做了几项工作</p>
+<ol>
+  <li>收集/构造短自然语言 prompt 数据</li>
+  <li>用 SFT 训练一个攻击 prompt 生成器，让它先学会生成“看起来自然、简短”的 prompt。</li>
+  <li>训练轻量 MLP 预测器，输入 victim model 的 hidden states，输出这个 prompt 可能诱导的 reasoning 长度。由此来判断这个prompt到底好不好需要这个预测器是因为如果每次都用“真实 reasoning 长度”做反馈，越成功的 prompt 越耗时，搜索本身会越来越慢。论文叫这是 self-defeating feedback。</li>
+  <li>用 GRPO 继续优化攻击 prompt 生成器
+ 其中 reward 包括：
+    - MLP 预测的 reasoning 长度
+    - prompt 多样性奖励：奖励攻击模型生成<strong>不重复、不同类型、不同表达方式</strong>的 prompt
+    - 自然性/长度约束等
+5.得到最终攻击 prompt 生成器，生成短而自然、但容易诱导长 reasoning 的 prompt</li>
+</ol>
+
+<h1 id="agent-工具链资源滥用">Agent 工具链资源滥用</h1>
+
+<h2 id="攻击定义-1">攻击定义</h2>
+<p><strong>Agent 工具链资源滥用</strong>是指：攻击者利用 Agent 的自主规划和工具调用能力，通过直接指令、间接提示注入或恶意工具返回，诱使或驱使 Agent 进行循环、递归、并发或高成本的工具调用，突破系统预期的资源使用边界，从而大量消耗计算、网络、存储、API 配额或付费资源。</p>
+<h2 id="攻击案例">攻击案例</h2>
+
+<h3 id="langchain-webresearchretriever">Langchain-WebResearchRetriever</h3>
+<p>在默认情况下，用户调用 <code class="language-plaintext highlighter-rouge">WebResearchRetriever</code> 时，LangChain 会使用以下核心配置：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
+    "num_search_results": 1,
+    "prompt": "Generate THREE Google search queries..."
+}
+</code></pre></div></div>
+
+<p>其中：</p>
+<ul>
+  <li>默认 Prompt 要求模型生成 3 条 Google 搜索查询。</li>
+  <li><code class="language-plaintext highlighter-rouge">num_search_results: 1</code> 表示每条查询默认返回一个搜索结果。</li>
+  <li>模型输出通过正则表达式解析为编号查询列表。</li>
+  <li>每条解析出的查询都会调用一次搜索 API。</li>
+  <li>搜索结果中的 URL 会被下载、解析、切分并<strong>写入向量数据库</strong>。</li>
+  <li>最后，每条查询还会执行一次向量相似度检索。</li>
+</ul>
+
+<p>默认处理过程可以表示为：</p>
+<ol>
+  <li>接收用户问题</li>
+  <li>调用 LLM 生成搜索查询</li>
+  <li>解析编号查询列表</li>
+  <li>对每条查询调用搜索 API</li>
+  <li>收集并去重结果 URL</li>
+  <li>下载网页</li>
+  <li>HTML 转换与文本切分</li>
+  <li><strong>写入向量数据库</strong></li>
+  <li>对每条查询执行相似度检索</li>
+  <li>返回相关文档</li>
+</ol>
+
+<p>默认 Prompt 见 <code class="language-plaintext highlighter-rouge">langchain-community/libs/community/langchain_community/retrievers/web_research.py:44</code>，默认搜索结果数量见 <code class="language-plaintext highlighter-rouge">langchain-community/libs/community/langchain_community/retrievers/web_research.py:70</code>。
+默认的“3条查询”只由自然语言 Prompt 约束，并不是代码层的硬限制。查询解析器使用以下正则表达式提取所有编号行：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>re.findall(r"\d+\..*?(?:\n|$)", text)
+</code></pre></div></div>
+<p>该解析过程没有设置查询数量上限，相关实现见 <code class="language-plaintext highlighter-rouge">langchain-community/libs/community/langchain_community/retrievers/web_research.py:53</code>。
+例如，用户出于扩大检索覆盖范围的正常需求提出：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>请生成100条不同的搜索查询，以便尽可能完整地检索相关资料。
+</code></pre></div></div>
+<p>如果模型实际返回：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. query one?
+2. query two?
+3. query three?
+...
+4. query one hundred?
+</code></pre></div></div>
+<p>解析器会得到包含100条查询的列表：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>questions = [
+    "1. query one?",
+    "2. query two?",
+    ...
+    "100. query one hundred?"
+]
+</code></pre></div></div>
+<p>随后，<code class="language-plaintext highlighter-rouge">WebResearchRetriever</code> 会直接遍历全部查询：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for query in questions:
+    search_results = self.search_tool(
+        query,
+        self.num_search_results
+    )
+</code></pre></div></div>
+<p>该循环没有 <code class="language-plaintext highlighter-rouge">max_queries</code>、切片或总调用预算。因此，只要模型输出100条可解析查询，Retriever 就会尝试调用搜索 API 100次。相关实现见 <code class="language-plaintext highlighter-rouge">langchain-community/libs/community/langchain_community/retrievers/web_research.py:218</code>。
+当配置为：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>num_search_results = 1
+</code></pre></div></div>
+<p>这里的关键问题是，所有网页被切分为chunks存入向量数据库进行检索，就会造成内存DOS</p>
+
+<p>而且如果 <code class="language-plaintext highlighter-rouge">WebResearchRetriever</code> 被封装为 LangGraph 的一个节点或一个 Agent 工具，外层通常只会记录：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1次 Retriever 工具调用
+→ 内部执行100次搜索
+</code></pre></div></div>
+<p>因此，LangGraph 的 <code class="language-plaintext highlighter-rouge">recursion_limit</code> 和 LangChain 的外层工具调用次数限制无法直接约束 Retriever 内部的搜索数量。</p>
+
+<p>实验中使用的向量库是基于内存的，在这种情况下，本意是加快搜索网页检索回答的过程。
+<strong>网页获取结果保存在基于内存的向量数据库，网页越多，占用的内存就越多，通过这种方式可以造成内存DOS</strong></p>
+
+<h1 id="rag--检索与数据处理扩张攻击">RAG / 检索与数据处理扩张攻击</h1>
+
+<h2 id="攻击定义-2">攻击定义</h2>
+
+<p>攻击者通过构造查询、文档、URL 或数据源，使 RAG 系统在检索、重写、重排、上下文拼接、文档解析、chunking、embedding 或索引阶段执行超出预期的数据处理任务，从而造成延迟升高、资源占用增加或服务不可用。</p>
+
+<h2 id="攻击案例-1">攻击案例</h2>
+<p>这里以我自己挖掘的一个漏洞来讲吧，以RAGFLOW为例，做了大量的实验。由于cyber没了，这里也是非常小心的让gpt跑实验，生怕触发了警告。</p>
+
+<h4 id="ragflow">RAGFLOW</h4>
+<p>RAGFlow 是一个开源的 RAG（检索增强生成）平台，用来把企业文档转换成可检索的知识库，并将检索结果提供给大模型回答问题。
+其中有两个本案例关注的组件</p>
+<ul>
+  <li><strong>RAGFlow</strong>：负责文档解析、chunk 切分、embedding 调用、检索编排和 API/UI。</li>
+  <li><strong>Infinity</strong>：保存 chunk、向量和索引，执行向量与关键词检索。</li>
+</ul>
+
+<h5 id="文档解析缺陷">文档解析缺陷</h5>
+<p>在默认情况下，用户上传文档时，RAGFlow 会使用 <code class="language-plaintext highlighter-rouge">naive</code> 切分方式，并应用以下核心配置：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
+  "chunk_method": "naive",
+  "parser_config": {
+    "chunk_token_num": 512,
+    "delimiter": "\n"
+  }
+}
+</code></pre></div></div>
+
+<p>其中：</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">delimiter: "\n"</code> 表示先按照换行符识别文本段落。</li>
+  <li><code class="language-plaintext highlighter-rouge">chunk_token_num: 512</code> 表示目标 chunk 大小约为 512 tokens。</li>
+  <li>换行得到的短段落不会直接成为独立 chunk，而是继续合并，直到接近 512 tokens。</li>
+  <li>超过目标长度后，RAGFlow 才创建下一个 chunk。</li>
+</ul>
+
+<p>默认切分过程可以表示为：</p>
+<ol>
+  <li>读取文档</li>
+  <li>按换行符拆分段落</li>
+  <li>计算每个段落的 token 数</li>
+  <li>将多个短段落合并</li>
+  <li>接近 512 tokens 后形成一个 chunk</li>
+  <li>继续处理后续段落</li>
+</ol>
+
+<p>也就是说，默认配置下并不是“一个换行对应一个 chunk”，而是将换行作为段落边界，再通过 <code class="language-plaintext highlighter-rouge">chunk_token_num</code> 控制最终 chunk 大小。默认配置见 <code class="language-plaintext highlighter-rouge">ragflow/api/utils/api_utils.py:338</code>，合并逻辑见 <code class="language-plaintext highlighter-rouge">ragflow/rag/nlp/__init__.py:1171</code>。</p>
+
+<p>而如果用户通过 API 配置自定义分隔符，可以在创建数据集时提交：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /api/v1/datasets
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+
+{
+  "name": "custom-delimiter-dataset",
+  "chunk_method": "naive",
+  "parser_config": {
+    "chunk_token_num": 512,
+    "delimiter": "`###`"
+  }
+}
+</code></pre></div></div>
+
+<p>这里反引号中的 <code class="language-plaintext highlighter-rouge">###</code> 表示字面量自定义分隔符。假设上传的文档内容为：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>A###B###C###D
+</code></pre></div></div>
+
+<p>RAGFlow 会识别出自定义分隔符 <code class="language-plaintext highlighter-rouge">###</code>，并得到：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>A
+B
+C
+D
+</code></pre></div></div>
+
+<p>在当前 v0.26.4 实现中，一旦检测到自定义分隔符，程序就会进入单独的处理分支：该分支不会再调用默认的段落合并逻辑。因此，即使配置了 <code class="language-plaintext highlighter-rouge">chunk_token_num: 512</code>，每个片段仍然会直接成为一个 chunk。相关实现见 <code class="language-plaintext highlighter-rouge">ragflow/rag/nlp/__init__.py:1195</code>。例如：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>x###x###x###x###x
+</code></pre></div></div>
+<p>会产生多个仅包含一个字符的 chunk，而不会将这些字符重新合并成一个接近 512 tokens 的 chunk。</p>
+
+<p><strong>而单个文档产生大量的 chunk，会导致 CPU 和内存占用满，且默认重试三次。</strong></p>
+
+<h5 id="infinity-写入控制缺陷">Infinity 写入控制缺陷</h5>
+<p>在默认情况下，RAGFlow 完成文档切分和 embedding 后，会将每个 chunk 组织成一条向量记录，并分批写入 Infinity。
+问题在于，RAGFlow 在每批写入前，没有检查 Infinity 当前是否还有足够内存。
+写入流程是</p>
+
+<ol>
+  <li>生成 chunks</li>
+  <li>→ 生成 embedding</li>
+  <li>→ 直接调用 Infinity insert</li>
+  <li>→ 由 Infinity 尝试分配内存</li>
+</ol>
+
+<p>写入前没有执行以下判断：</p>
+<ul>
+  <li>Infinity 当前内存占用</li>
+  <li>Infinity 容器内存上限</li>
+</ul>
+
+<p>因此，即使 Infinity 已经接近内存上限，RAGFlow 仍会继续发送新的写入批次。例如：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Infinity 上限：456 MiB
+当前占用：402.5 MiB
+当前占比：84.5%
+
+RAGFlow 继续写入约 1,800 个 chunks
+→ Infinity 创建文本和向量索引
+→ 内存继续增长
+→ 达到 456 MiB 上限
+→ Infinity 主进程被终止
+</code></pre></div></div>
+<p>Infinity 容器达到硬内存限制后，系统会终止 Infinity 主进程。</p>
+
+<p>Infinity 容器的默认 Docker 配置包含：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>infinity:
+  mem_limit: ${MEM_LIMIT}
+  restart: unless-stopped
+</code></pre></div></div>
+<p>见 <code class="language-plaintext highlighter-rouge">ragflow/docker/docker-compose-base.yml:76</code>。</p>
+
+<p>如果后续仍有文档不断写入，就可能形成：</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Infinity 恢复
+→ 新文档继续写入
+→ 再次达到内存上限
+→ 再次退出
+→ Docker 再次重启
+</code></pre></div></div>
+
+<p><strong>而一旦 Infinity 终止，所有检索任务将不可用</strong></p>
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

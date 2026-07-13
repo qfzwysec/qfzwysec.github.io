@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>云端沙箱研究：CubeSandbox - qfzwy's Blog</title>
+
+	<link rel="shortcut icon" href="/styles/images/favicon.jpg">
+	<link rel="icon" href="/styles/images/favicon.jpg">
+	
+	
+	
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783927893">
+	
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783927893">
+	<link rel="canonical" href="/2026/07/13/%E4%BA%91%E7%AB%AF%E6%B2%99%E7%AE%B1%E7%A0%94%E7%A9%B6-CubeSandbox/">
+	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
+	
+	<meta name="keywords" content="云端沙箱研究：CubeSandbox, qfzwy's Blog, 个人博客">
+	<meta name="description" content="个人博客">
+	<!--[if lt IE 9]>
+    	<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  	<![endif]-->
+  	<script>
+		var _hmt = _hmt || [];
+		(function() {
+		  var hm = document.createElement("script");
+		  hm.src = "//hm.baidu.com/hm.js?94be4b0f9fc5d94cc0d0415ea6761ae9";
+		  var s = document.getElementsByTagName("script")[0]; 
+		  s.parentNode.insertBefore(hm, s);
+		})();
+	</script>
+</head>
+
+
+  <body class="index">
+
+    <main class="post-page">
+  <header class="post-nav">
+    <a class="post-brand" href="/">安全研究</a>
+    <nav class="post-tabs" aria-label="Security topics">
+      <a href="/ai-security/">AI 安全</a>
+      <a href="/mobile-security/">移动安全</a>
+      <a href="/bmc-security/">BMC 安全</a>
+    </nav>
+  </header>
+
+  <div class="post-frame">
+    <article class="post-shell">
+      <header class="post-hero">
+        <div class="post-breadcrumb">
+          <a href="/">安全研究</a>
+          
+            <span>/</span>
+            <span>AI安全</span>
+          
+        </div>
+
+        <div class="post-meta-line">
+          
+            <span>AI安全</span>
+          
+          <time datetime="2026-07-13T15:00:00+08:00">2026.07.13</time>
+          
+            <span>智能体安全</span>
+          
+        </div>
+
+        <h1>云端沙箱研究：CubeSandbox</h1>
+
+        
+          <p class="post-description">梳理腾讯云开源 CubeSandbox 的控制面、数据面、MicroVM 生命周期、网络出入站控制、CubeProxy 路由以及 Agent 接入方式。</p>
+        
+
+      </header>
+
+      <aside class="post-outline" aria-label="文章大纲">
+        <div class="post-outline-inner">
+          <p>大纲</p>
+          <nav id="post-outline-list"></nav>
+        </div>
+      </aside>
+
+      <section class="post-content">
+        <p>CubeSandbox 是腾讯云开源的一套 Agent 沙箱基础设施。它给每个任务启动一台轻量、短生命周期的 Linux 微虚拟机，并在外部统一管理它的生命周期、文件、网络、访问凭据和审计记录。</p>
+
+<h1 id="一整体架构">一、整体架构</h1>
+
+<p>CubeSandbox 可以分为控制面和数据面。</p>
+
+<ul>
+  <li><strong>控制面</strong>负责接收请求、调度节点、保存状态和提供管理界面。</li>
+  <li><strong>数据面</strong>负责真正启动微虚拟机、准备磁盘、转发网络和执行安全策略。</li>
+</ul>
+
+<p><img src="/styles/images/cubesandbox-research/e9189695ad5588823b04f041096fd483.png" alt="CubeSandbox 整体架构" /></p>
+
+<h2 id="1-cube-api对外入口">1. Cube API：对外入口</h2>
+
+<p>CubeAPI 是兼容 E2B 接口的 REST API 网关。Agent 或程序调用 <code class="language-plaintext highlighter-rouge">Sandbox.create()</code> 时，请求先到 CubeAPI。CubeAPI 负责参数转换、可选鉴权以及把请求转交给 CubeMaster。</p>
+
+<p><img src="/styles/images/cubesandbox-research/file-20260713130026434.png" alt="CubeAPI 接入示例" /></p>
+
+<p>兼容 E2B 的意义在于，原本使用 E2B SDK 的程序通常只需要修改 API 地址和模板 ID，就可以改为连接自己的 CubeSandbox。</p>
+
+<p>E2B配置</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">E2B_API_URL</span><span class="o">=</span>http://10.122.220.95:3000
+<span class="nb">export </span><span class="nv">E2B_API_KEY</span><span class="o">=</span>e2b_000000
+</code></pre></div></div>
+
+<p>沙箱模版</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 使用 CubeSandbox 中已经创建好的模板</span>
+<span class="nb">export </span><span class="nv">CUBE_TEMPLATE_ID</span><span class="o">=</span>tpl-5c1f414b65bb414ba1fd2c7b
+</code></pre></div></div>
+
+<p>Agent执行</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
+<span class="kn">from</span> <span class="n">e2b_code_interpreter</span> <span class="kn">import</span> <span class="n">Sandbox</span>
+
+<span class="k">with</span> <span class="n">Sandbox</span><span class="p">.</span><span class="nf">create</span><span class="p">(</span><span class="n">template</span><span class="o">=</span><span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">CUBE_TEMPLATE_ID</span><span class="sh">"</span><span class="p">])</span> <span class="k">as</span> <span class="n">sandbox</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">sandbox</span><span class="p">.</span><span class="n">commands</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="sh">"</span><span class="s">echo hello cube &amp;&amp; uname -m</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">stdout</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>此时<code class="language-plaintext highlighter-rouge">Sandbox.create()</code> 的创建请求会发送到<code class="language-plaintext highlighter-rouge">http://10.122.220.95:3000</code>，然后CubeAPI 将它转换并转交给 CubeMaster；CubeMaster 调度 Cubelet 从指定模板启动 MicroVM。随后 <code class="language-plaintext highlighter-rouge">commands.run()</code> 的执行请求经 CubeProxy 进入该 MicroVM。离开 <code class="language-plaintext highlighter-rouge">with</code> 代码块时，SDK 会请求销毁沙箱。</p>
+
+<h2 id="2-cubemaster集群调度中心">2. CubeMaster：集群调度中心</h2>
+
+<p>CubeMaster 决定沙箱应该在哪台计算节点上运行，并协调创建、销毁、暂停、恢复、快照和克隆等操作。Redis 用于共享生命周期事件和路由状态，MySQL 保存需要持久化的控制面数据。</p>
+
+<p><img src="/styles/images/cubesandbox-research/file-20260713130543448.png" alt="CubeMaster 调度与生命周期管理" /></p>
+
+<h2 id="3-cubelet计算节点管理员">3. Cubelet：计算节点管理员</h2>
+
+<p>每台计算节点运行一个 Cubelet。它接到 CubeMaster 的指令后，准备沙箱需要的磁盘、内存、网络和运行时资源，然后调用 CubeShim 启动微虚拟机。可以把 Cubelet 理解为每台宿主机上的“现场管理员”。</p>
+
+<h2 id="4-cubeshim-与-cubehypervisor真正启动微虚拟机">4. CubeShim 与 CubeHypervisor：真正启动微虚拟机</h2>
+
+<p>CubeShim 实现 containerd Shim v2 接口，把上层的容器式生命周期操作转换成微虚拟机操作。CubeHypervisor 基于 RustVMM 和 Linux KVM，负责创建 vCPU、内存、虚拟磁盘、虚拟网卡和 vsock 通信设备。</p>
+
+<h2 id="5-cubecow模板快照和克隆">5. CubeCoW：模板、快照和克隆</h2>
+
+<p>CubeCoW 利用 XFS 的 reflink 和 Linux <code class="language-plaintext highlighter-rouge">FICLONE</code> 能力管理沙箱磁盘。模板中的大部分磁盘数据可以由多个沙箱共享；只有发生修改的块才需要单独写入。</p>
+
+<p>预制模板
+   ├── CoW 克隆 → 沙箱 A 的可写层
+   ├── CoW 克隆 → 沙箱 B 的可写层
+   └── CoW 克隆 → 沙箱 C 的可写层</p>
+
+<p>因此，启动一个临时小电脑时，不需要重新安装 Linux、Python、浏览器和其他依赖。平台直接复制一份模板的“使用视图”，这个复制主要是元数据操作。</p>
+
+<p>如果沙箱运行期间执行 <code class="language-plaintext highlighter-rouge">apt install</code> 或 <code class="language-plaintext highlighter-rouge">pip install</code>，新文件只写入该沙箱的可写层。沙箱销毁后，这些修改默认消失。若希望以后继续使用，应把环境制作成新模板或快照。</p>
+
+<h2 id="6-cubevs宿主机内核中的网络数据面">6. CubeVS：宿主机内核中的网络数据面</h2>
+
+<p>每个沙箱通过独立 TAP 设备连接宿主机。CubeVS 使用 eBPF 在宿主机内核中处理网络转发、NAT、连接跟踪和按沙箱划分的 IP/CIDR 策略。</p>
+
+<p>主要负责网络层问题：</p>
+
+<ul>
+  <li>这个沙箱能不能连接某个 IP？</li>
+  <li>私网、宿主机地址和云元数据地址是否应该拒绝？</li>
+  <li>这条连接应该直接出网，还是交给 CubeEgress 做更细的 HTTP 检查？</li>
+</ul>
+
+<p>它需要处理</p>
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">from_cube</code>：处理沙箱发出的数据包</li>
+  <li><code class="language-plaintext highlighter-rouge">from_world</code>：处理返回沙箱的数据包</li>
+</ol>
+
+<h2 id="7-cubeegress受控出网代理">7. CubeEgress：受控出网代理</h2>
+
+<p>CubeEgress 是部署在宿主机上的透明 HTTP/HTTPS 代理。CubeVS 将需要七层检查的流量通过 TPROXY 引导到 CubeEgress。CubeEgress 可以检查域名、TLS SNI、HTTP Host、方法和路径，并按照规则允许、拒绝、审计或添加请求头。
+注意，但不是所有的流量都要经过CubeEgress。</p>
+
+<p>在创建沙箱时，可以配置入站出站规则</p>
+
+<p><img src="/styles/images/cubesandbox-research/file-20260713141946856.png" alt="沙箱网络规则配置" /></p>
+
+<p>ui中其实缺少了一些功能，如果只在ui中配置了ip规则，这个CubeEgress是用不到的</p>
+
+<p>所有的ip规则在创建后，会被统一解析到一个<code class="language-plaintext highlighter-rouge">allow_out_v2</code>，后续CubeVS看的就是这个</p>
+
+<p>沙箱模版其实还接受这种写法</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="pi">{</span>
+  <span class="s2">"</span><span class="s">templateID"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">模板ID"</span><span class="pi">,</span>
+  <span class="s2">"</span><span class="s">network"</span><span class="pi">:</span> <span class="pi">{</span>
+    <span class="s2">"</span><span class="s">rules"</span><span class="pi">:</span> <span class="pi">[</span>
+      <span class="pi">{</span>
+        <span class="s2">"</span><span class="s">name"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">api_rule"</span><span class="pi">,</span>
+        <span class="s2">"</span><span class="s">match"</span><span class="pi">:</span> <span class="pi">{</span>
+          <span class="s2">"</span><span class="s">sni"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">api.example.com"</span>
+        <span class="pi">},</span>
+        <span class="s2">"</span><span class="s">action"</span><span class="pi">:</span> <span class="pi">{</span>
+          <span class="s2">"</span><span class="s">allow"</span><span class="pi">:</span> <span class="nv">true</span>
+        <span class="pi">}</span>
+      <span class="pi">}</span>
+    <span class="pi">]</span>
+  <span class="pi">}</span>
+<span class="pi">}</span>
+</code></pre></div></div>
+
+<p>当匹配到这种规则时，rule中的sni或者host会被提取为<code class="language-plaintext highlighter-rouge">L7AllowOut</code>写入<code class="language-plaintext highlighter-rouge">allow_out_v2</code>，并携带一个标志</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>NET_POLICY_FLAG_L7_REQUIRED = 1
+</code></pre></div></div>
+
+<p>处理结果就是</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>api.example.com
+      ↓ DNS解析
+203.0.113.10
+      ↓
+allow_out_v2：
+203.0.113.10/32
+flags = L7_REQUIRED
+</code></pre></div></div>
+
+<p>当CubeVS看到目标<code class="language-plaintext highlighter-rouge">should_redirect_to_l7_proxy()</code>也就是带有<code class="language-plaintext highlighter-rouge">L7_REQUIRED</code>标记就会交给CubeEgress。</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CubeVS把TCP 80/443流量交给CubeEgress
+                ↓
+CubeEgress识别这是哪个沙箱的请求
+                ↓
+读取SNI、Host、Method、Path、Scheme
+                ↓
+按顺序匹配该沙箱的rules
+                ↓
+执行action
+                ↓
+允许：转发给原始服务器
+拒绝：返回HTTP 403
+</code></pre></div></div>
+
+<p>也就是说，比如用户访问一个ip。这个ip在allow_out_v2没有L7_REQUIRED 就直接放行，如果有就需要再交给CubeEgress看对应的域名是否正确。</p>
+
+<h2 id="8--cubeproxy从客户端访问具体沙箱">8.  CubeProxy：从客户端访问具体沙箱</h2>
+
+<p>CubeEgress 管理“沙箱向外访问”，CubeProxy 则管理“客户端向沙箱访问”，两者方向不同。</p>
+
+<p>E2B SDK 会访问类似下面的域名：</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;端口&gt;-&lt;sandbox_id&gt;.cube.app
+</code></pre></div></div>
+
+<p>CubeProxy 从域名中解析目标端口和沙箱 ID，再查询沙箱所在位置，将请求转发到对应 MicroVM。配套的 lifecycle manager 还能在请求到来时恢复已经自动暂停的沙箱。</p>
+
+<p>假设创建了一个沙箱：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sandbox_id = sb-abc123
+sandbox IP = 192.168.0.20
+所在节点 = 10.0.0.15
+</code></pre></div></div>
+<p>然后在沙箱中启动一个网页服务：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 -m http.server 8000
+</code></pre></div></div>
+<p>这个服务实际监听在：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>192.168.0.20:8000
+</code></pre></div></div>
+<p>但客户端不能直接访问这个沙箱IP。客户端使用CubeProxy提供的地址：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>https://8000-sb-abc123.cube.app
+</code></pre></div></div>
+<p>完整处理过程如下。</p>
+
+<h4 id="第一步请求到达cubeproxy">第一步：请求到达CubeProxy</h4>
+<p>浏览器发送：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET / HTTP/1.1
+Host: 8000-sb-abc123.cube.app
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">*.cube.app</code> 会被解析到CubeProxy地址，所以请求首先进入CubeProxy，而不是直接进入沙箱。</p>
+<h4 id="第二步从host中提取目标">第二步：从Host中提取目标</h4>
+
+<p>CubeProxy解析：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>8000-sb-abc123.cube.app
+│    │
+│    └── sandbox_id = sb-abc123
+└─────── container_port = 8000
+</code></pre></div></div>
+<p>对应源码会执行：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>local container_port, ins_id =
+    hostname:match("^(%d+)%-([^%.]+)")
+</code></pre></div></div>
+<p>见 <code class="language-plaintext highlighter-rouge">rewrite_phase.lua (line 5)</code>（<code class="language-plaintext highlighter-rouge">CubeProxy/lua/rewrite_phase.lua:5</code>）。
+现在CubeProxy知道：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>要访问的沙箱：sb-abc123
+要访问的沙箱端口：8000
+</code></pre></div></div>
+<h4 id="第三步检查沙箱是否暂停">第三步：检查沙箱是否暂停</h4>
+<p>CubeProxy查询本地保存的沙箱状态。
+如果状态是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>running
+</code></pre></div></div>
+<p>就直接继续路由。
+如果状态是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>paused
+</code></pre></div></div>
+<p>CubeProxy先向配套sidecar发送内部请求：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /internal/resume?sandbox_id=sb-abc123
+</code></pre></div></div>
+<p>恢复完成后，原来的浏览器请求才继续处理：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>浏览器请求
+    ↓
+发现沙箱已暂停
+    ↓
+请求恢复sb-abc123
+    ↓
+MicroVM恢复运行
+    ↓
+继续处理原浏览器请求
+</code></pre></div></div>
+<p>因此客户端不需要先手动调用 <code class="language-plaintext highlighter-rouge">Sandbox.connect()</code>。恢复逻辑见 <code class="language-plaintext highlighter-rouge">sandbox_state.lua (line 78)</code>（<code class="language-plaintext highlighter-rouge">CubeProxy/lua/sandbox_state.lua:78</code>）。</p>
+
+<h4 id="第四步查询沙箱所在位置">第四步：查询沙箱所在位置</h4>
+<p>CubeProxy根据 <code class="language-plaintext highlighter-rouge">sandbox_id</code> 查询Redis中的路由元数据：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sb-abc123
+├── HostIP     = 10.0.0.15
+├── SandboxIP  = 192.168.0.20
+└── 8000       = 节点映射端口
+</code></pre></div></div>
+<p>这些数据由CubeMaster在创建或恢复沙箱时写入。
+查询代码见 <code class="language-plaintext highlighter-rouge">sandbox_backend.lua (line 60)</code>（<code class="language-plaintext highlighter-rouge">CubeProxy/lua/sandbox_backend.lua:60</code>）。
+接下来分两种情况。
+如果沙箱就在CubeProxy本机：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CubeProxy → 192.168.0.20:8000
+</code></pre></div></div>
+<p>CubeProxy直接访问沙箱IP和原始端口。
+如果沙箱在另一台计算节点：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CubeProxy → 10.0.0.15:映射端口 → 192.168.0.20:8000
+</code></pre></div></div>
+<p>CubeProxy先访问目标节点的映射端口，再由该节点上的CubeVS转发到沙箱。
+对应判断见 <code class="language-plaintext highlighter-rouge">sandbox_backend.lua (line 173)</code>（<code class="language-plaintext highlighter-rouge">CubeProxy/lua/sandbox_backend.lua:173</code>）。</p>
+
+<h4 id="第五步转发请求并返回响应">第五步：转发请求并返回响应</h4>
+<p>CubeProxy确定最终后端地址后，将它设置为nginx的上游：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>balancer.set_current_peer(backend_ip, backend_port)
+</code></pre></div></div>
+<p>见 <code class="language-plaintext highlighter-rouge">balancer_phase.lua (line 8)</code>（<code class="language-plaintext highlighter-rouge">CubeProxy/lua/balancer_phase.lua:8</code>）。
+最终链路是：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>浏览器
+  ↓
+https://8000-sb-abc123.cube.app
+  ↓
+CubeProxy解析：
+  sandbox_id = sb-abc123
+  port = 8000
+  ↓
+如果暂停，先恢复MicroVM
+  ↓
+查询Redis路由
+  ↓
+找到192.168.0.20:8000
+  ↓
+沙箱中的Python HTTP服务
+  ↓
+响应沿原路返回浏览器
+</code></pre></div></div>
+
+<p>其意义是：<strong>给所有沙箱提供一个统一、稳定的访问入口，客户端不需要知道沙箱IP、所在节点和当前运行状态。</strong></p>
+
+<h1 id="二接入方式">二、接入方式</h1>
+
+<h2 id="1-非e2b-agent通过工具或skill调用沙箱">1. 非E2B Agent通过工具或Skill调用沙箱</h2>
+<p>有些Agent既没有使用E2B，也没有内置CubeSandbox支持，例如OpenClaw一类可以执行本地工具的Agent。
+这种情况下，可以给Agent提供一个沙箱工具或使用说明，让它在需要执行代码时调用CubeSandbox：
+官方有提供一个skill，CubeSandbox/examples/openclaw-integration/skills/cube-sandbox/SKILL.md</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>用户要求Agent处理工作区
+        ↓
+Agent调用沙箱工具
+        ↓
+创建MicroVM
+        ↓
+在/workspace中执行代码
+        ↓
+读取结果
+        ↓
+销毁沙箱
+</code></pre></div></div>
+<h2 id="2-兼容e2b的agent通过sdk接入沙箱">2. 兼容E2B的Agent通过SDK接入沙箱</h2>
+<p>前面有说到过，只需要修改E2B API地址和模板ID：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>export E2B_API_URL=http://10.122.220.95:3000
+export E2B_API_KEY=e2b_000000
+export CUBE_TEMPLATE_ID=tpl-xxx
+</code></pre></div></div>
+<p>使用：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>with Sandbox.create(template=os.environ["CUBE_TEMPLATE_ID"]) as sandbox:
+    result = sandbox.commands.run("python3 task.py")
+</code></pre></div></div>
+<p>调用链从：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Agent → E2B云服务
+</code></pre></div></div>
+<p>变成：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Agent → CubeAPI → CubeMaster → Cubelet → MicroVM
+</code></pre></div></div>
+<p>这种方式适合已经支持E2B的Agent、代码解释器和开发工具，迁移成本最低。
+这里要说明的是如果不希望agent所有行为都在沙箱里，那就不能再提供别的操作本地文件，代码执行的工具。提供的所有工具都要封装成sandbox。例如</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sandbox.commands.run("python3 task.py")
+</code></pre></div></div>
+<h2 id="3-直接使用内置agenthub">3. 直接使用内置AgentHub</h2>
+
+<p>也可以直接使用内置 AgentHub：</p>
+
+<p><img src="/styles/images/cubesandbox-research/file-20260713150835672.png" alt="内置 AgentHub" /></p>
+
+      </section>
+    </article>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var content = document.querySelector(".post-content");
+    var outline = document.querySelector(".post-outline");
+    var list = document.getElementById("post-outline-list");
+    if (!content || !outline || !list) return;
+
+    var headings = Array.prototype.slice.call(
+      content.querySelectorAll("h1, h2, h3, h4, h5")
+    ).filter(function (heading) {
+      return heading.textContent.trim().length > 0;
+    });
+
+    if (!headings.length) {
+      outline.hidden = true;
+      return;
+    }
+
+    headings.forEach(function (heading, index) {
+      if (!heading.id) {
+        heading.id = "section-" + index;
+      }
+      var link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.textContent = heading.textContent.trim();
+      link.className = "outline-" + heading.tagName.toLowerCase();
+      list.appendChild(link);
+    });
+  })();
+</script>
+
+
+  </body>
+</html>

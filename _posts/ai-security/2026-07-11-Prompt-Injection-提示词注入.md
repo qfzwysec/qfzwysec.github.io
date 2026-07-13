@@ -66,8 +66,6 @@ cover: /styles/images/prompt-injection/cover.png
 
 但是目前模型看到可疑的编码 payload 会比较谨慎，会自主还原后再进行判断，常规方式不行。
 
-我的案例：双密钥反弹 shell（后续补充链接）。
-
 ## 分步诱导
 
 这种方式比较好用：
@@ -101,8 +99,8 @@ cover: /styles/images/prompt-injection/cover.png
 
 1. RAG 投毒攻击：靶场案例。
 2. 网页投毒攻击。
-3. 邮件与日历攻击：列举两个具体案例。
-4. 跨应用攻击：多智能体框架攻击。
+3. 邮件与日历攻击：具体案例。
+4. 跨应用攻击。
 5. 记忆攻击。
 
 邮件与日历攻击中，一个典型场景是：攻击者发送一个恶意 **Google Calendar 邀请**，把间接提示注入藏在日历事件标题或内容里。用户之后在手机或网页上问 Gemini 类似“今天/这周有什么日程？”，Gemini 会读取日历事件，把恶意文本放进上下文，进而被诱导执行后续动作，比如调用 Google Home 控制智能家居、打开 Zoom、泄露邮件/日历信息、删除或创建日历事件等。
@@ -159,4 +157,4 @@ cover: /styles/images/prompt-injection/cover.png
 
 ## 信息来源分离
 
-目前大部分智能体都做了消息系统，将信息来源分为 `system`、`user`、`tool_output` 等，并进行明确的分隔。
+目前大部分智能体都做了消息系统，将信息来源分为 `system`、`user`、`tool_output` 等，并进行明确的分离。

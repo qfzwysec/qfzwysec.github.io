@@ -12,7 +12,7 @@ meta_description: 个人博客
 #permalink: /:categories/:year/:month/:day/:title/
 permalink: /:year/:month/:day/:title/
 
-exclude: ['README.md', 'Gemfile.lock', 'Gemfile', 'Rakefile', 'docs', '_site']
+exclude: ['README.md', 'Gemfile.lock', 'Gemfile', 'Rakefile', 'docs', '_site', 'exports']
 
 github_username: qfzwysec
 

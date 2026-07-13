@@ -12,9 +12,9 @@
 	
 	
 	
-	<link rel="stylesheet" href="/styles/css/post.css?v=1783764740">
+	<link rel="stylesheet" href="/styles/css/post.css?v=1783915927">
 	
-	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783764740">
+	<link rel="stylesheet" href="/styles/css/syntax.css?v=1783915927">
 	<link rel="canonical" href="/2026/07/11/Prompt-Injection-%E6%8F%90%E7%A4%BA%E8%AF%8D%E6%B3%A8%E5%85%A5/">
 	<link rel="alternate" type="application/rss+xml" title="qfzwy's Blog" href="/feed.xml">
 	
@@ -140,8 +140,6 @@
 
 <p>但是目前模型看到可疑的编码 payload 会比较谨慎，会自主还原后再进行判断，常规方式不行。</p>
 
-<p>我的案例：双密钥反弹 shell（后续补充链接）。</p>
-
 <h2 id="分步诱导">分步诱导</h2>
 
 <p>这种方式比较好用：</p>
@@ -179,8 +177,8 @@
 <ol>
   <li>RAG 投毒攻击：靶场案例。</li>
   <li>网页投毒攻击。</li>
-  <li>邮件与日历攻击：列举两个具体案例。</li>
-  <li>跨应用攻击：多智能体框架攻击。</li>
+  <li>邮件与日历攻击：具体案例。</li>
+  <li>跨应用攻击。</li>
   <li>记忆攻击。</li>
 </ol>
 
@@ -236,7 +234,7 @@
 
 <h2 id="信息来源分离">信息来源分离</h2>
 
-<p>目前大部分智能体都做了消息系统，将信息来源分为 <code class="language-plaintext highlighter-rouge">system</code>、<code class="language-plaintext highlighter-rouge">user</code>、<code class="language-plaintext highlighter-rouge">tool_output</code> 等，并进行明确的分隔。</p>
+<p>目前大部分智能体都做了消息系统，将信息来源分为 <code class="language-plaintext highlighter-rouge">system</code>、<code class="language-plaintext highlighter-rouge">user</code>、<code class="language-plaintext highlighter-rouge">tool_output</code> 等，并进行明确的分离。</p>
 
       </section>
     </article>

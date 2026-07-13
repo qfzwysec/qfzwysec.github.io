@@ -5,8 +5,8 @@
     <description>记录web攻防，移动安全，芯片安全学习心得!</description>
     <link>https://qfzwysec.github.io//</link>
     <atom:link href="https://qfzwysec.github.io//feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 11 Jul 2026 18:12:20 +0800</pubDate>
-    <lastBuildDate>Sat, 11 Jul 2026 18:12:20 +0800</lastBuildDate>
+    <pubDate>Mon, 13 Jul 2026 12:12:07 +0800</pubDate>
+    <lastBuildDate>Mon, 13 Jul 2026 12:12:07 +0800</lastBuildDate>
     <generator>Jekyll v4.4.1</generator>
     
       <item>
@@ -216,8 +216,6 @@
 
 &lt;p&gt;但是目前模型看到可疑的编码 payload 会比较谨慎，会自主还原后再进行判断，常规方式不行。&lt;/p&gt;
 
-&lt;p&gt;我的案例：双密钥反弹 shell（后续补充链接）。&lt;/p&gt;
-
 &lt;h2 id=&quot;分步诱导&quot;&gt;分步诱导&lt;/h2&gt;
 
 &lt;p&gt;这种方式比较好用：&lt;/p&gt;
@@ -255,8 +253,8 @@
 &lt;ol&gt;
   &lt;li&gt;RAG 投毒攻击：靶场案例。&lt;/li&gt;
   &lt;li&gt;网页投毒攻击。&lt;/li&gt;
-  &lt;li&gt;邮件与日历攻击：列举两个具体案例。&lt;/li&gt;
-  &lt;li&gt;跨应用攻击：多智能体框架攻击。&lt;/li&gt;
+  &lt;li&gt;邮件与日历攻击：具体案例。&lt;/li&gt;
+  &lt;li&gt;跨应用攻击。&lt;/li&gt;
   &lt;li&gt;记忆攻击。&lt;/li&gt;
 &lt;/ol&gt;
 
@@ -312,7 +310,7 @@
 
 &lt;h2 id=&quot;信息来源分离&quot;&gt;信息来源分离&lt;/h2&gt;
 
-&lt;p&gt;目前大部分智能体都做了消息系统，将信息来源分为 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;system&lt;/code&gt;、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;user&lt;/code&gt;、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tool_output&lt;/code&gt; 等，并进行明确的分隔。&lt;/p&gt;
+&lt;p&gt;目前大部分智能体都做了消息系统，将信息来源分为 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;system&lt;/code&gt;、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;user&lt;/code&gt;、&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;tool_output&lt;/code&gt; 等，并进行明确的分离。&lt;/p&gt;
 </description>
         <pubDate>Sat, 11 Jul 2026 01:00:00 +0800</pubDate>
         <link>https://qfzwysec.github.io//2026/07/11/Prompt-Injection-%E6%8F%90%E7%A4%BA%E8%AF%8D%E6%B3%A8%E5%85%A5/</link>
